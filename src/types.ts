@@ -1,5 +1,5 @@
 /**
- * dep-audit 统一内部模型 — 所有 parser 输出相同类型
+ * audit-mcp-cli 统一内部模型 — 所有 parser 输出相同类型
  */
 
 /** 严重级别，按严重程度降序 */

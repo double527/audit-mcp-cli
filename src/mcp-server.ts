@@ -19,7 +19,7 @@ const AuditInputSchema = z.object({
 
 export async function startMcpServer(): Promise<void> {
   const server = new Server(
-    { name: 'dep-audit', version: '1.0.0' },
+    { name: 'audit-mcp-cli', version: '1.0.0' },
     { capabilities: { tools: {} } },
   );
 

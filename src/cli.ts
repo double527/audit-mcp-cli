@@ -6,7 +6,7 @@ import { SEVERITY_RANK, type Severity } from './types.js';
 const program = new Command();
 
 program
-  .name('dep-audit')
+  .name('audit-mcp-cli')
   .description('轻量级依赖漏洞审计工具')
   .version('1.0.0')
   .option('--path <path>', '本地项目路径')

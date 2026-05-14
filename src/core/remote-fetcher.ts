@@ -21,7 +21,7 @@ export async function fetchRemoteFiles(
   token?: string,
 ): Promise<RemoteFiles> {
   const headers: Record<string, string> = {
-    'User-Agent': 'dep-audit',
+    'User-Agent': 'audit-mcp-cli',
     Accept: 'application/vnd.github.v3+json',
   };
   if (token) {
@@ -29,7 +29,7 @@ export async function fetchRemoteFiles(
   }
 
   // 创建临时目录
-  const tempDir = await mkdtemp(join(tmpdir(), 'dep-audit-'));
+  const tempDir = await mkdtemp(join(tmpdir(), 'audit-mcp-cli-'));
 
   // 注册清理钩子
   const cleanup = () => {

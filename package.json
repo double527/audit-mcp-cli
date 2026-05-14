@@ -3,13 +3,16 @@
   "version": "1.0.0",
   "description": "Lightweight dependency vulnerability audit tool with CLI and MCP Server support",
   "type": "module",
+  "main": "./dist/index.js",
+  "exports": {
+    ".": "./dist/index.js"
+  },
   "bin": {
     "audit-mcp-cli": "./bin/audit-mcp-cli.js"
   },
   "files": [
     "dist",
-    "bin",
-    "src/templates"
+    "bin"
   ],
   "engines": {
     "node": ">=18.0.0"
@@ -18,6 +21,27 @@
     "build": "tsc && node -e \"import{cpSync,mkdirSync}from'node:fs';import{join}from'node:path';const d=join('dist','templates');mkdirSync(d,{recursive:true});cpSync(join('src','templates'),d,{recursive:true})\"",
     "dev": "tsx src/cli.ts",
     "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "audit",
+    "vulnerability",
+    "security",
+    "dependency",
+    "npm",
+    "pnpm",
+    "mcp",
+    "mcp-server",
+    "cli"
+  ],
+  "author": "piks <673382412@qq.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/double527/audit-mcp-cli.git"
+  },
+  "homepage": "https://github.com/double527/audit-mcp-cli#readme",
+  "bugs": {
+    "url": "https://github.com/double527/audit-mcp-cli/issues"
   },
   "dependencies": {
     "commander": "^14.0.3",

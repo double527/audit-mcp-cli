@@ -14,11 +14,11 @@ interface IgnoreFile {
 }
 
 /**
- * 加载 .dep-audit-ignore.json（如果存在）
+ * 加载 .audit-mcp-cli-ignore.json（如果存在）
  */
 export async function loadIgnoreFile(projectPath: string): Promise<IgnoreRule[]> {
   try {
-    const raw = await readFile(resolve(projectPath, '.dep-audit-ignore.json'), 'utf-8');
+    const raw = await readFile(resolve(projectPath, '.audit-mcp-cli-ignore.json'), 'utf-8');
     const data: IgnoreFile = JSON.parse(raw);
     return data.ignore ?? [];
   } catch {

@@ -138,7 +138,7 @@ Returns: report file path + structured vulnerability summary (up to 20 entries s
 
 ## Ignore Mechanism
 
-Create `.dep-audit-ignore.json` in your project root to suppress accepted vulnerabilities:
+Create `.audit-mcp-cli-ignore.json` in your project root to suppress accepted vulnerabilities:
 
 ```json
 {
