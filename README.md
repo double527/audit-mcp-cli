@@ -68,6 +68,7 @@ audit-mcp-cli --severity high
 | `--severity <level>` | Minimum severity to display: `low` / `moderate` / `high` / `critical` | `low` |
 | `--fail-on <level>` | CI fail threshold — exit 1 if vulnerabilities at this level or above exist | — |
 | `--mcp` | Start as MCP Server | — |
+| `--lang <lang>` | Language: `en` or `zh-CN` | Auto-detect from system |
 
 ### `--fail-on` exit codes
 

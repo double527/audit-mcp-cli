@@ -68,6 +68,7 @@ audit-mcp-cli --severity high
 | `--severity <level>` | 最低显示级别：`low` / `moderate` / `high` / `critical` | `low` |
 | `--fail-on <level>` | CI 失败阈值 — 存在该级别及以上漏洞时 exit 1 | — |
 | `--mcp` | 以 MCP Server 模式启动 | — |
+| `--lang <lang>` | 语言：`en` 或 `zh-CN` | 自动检测系统语言 |
 
 ### `--fail-on` 退出码规则
 
