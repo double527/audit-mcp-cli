@@ -1,4 +1,5 @@
 import { execa } from 'execa';
+import { t } from './i18n.js';
 import type { PackageManager } from '../types.js';
 
 export interface AuditRawOutput {
@@ -7,7 +8,7 @@ export interface AuditRawOutput {
 }
 
 /**
- * 根据包管理器执行对应的 audit 命令
+ * Execute the appropriate audit command based on package manager
  */
 export async function runAudit(
   projectPath: string,
@@ -16,7 +17,7 @@ export async function runAudit(
   if (pkgManager === 'pnpm') {
     return runPnpmAudit(projectPath);
   }
-  // npm 和 yarn（yarn 走 npm 兜底）都使用 npm audit
+  // npm and yarn (yarn falls back to npm) both use npm audit
   return runNpmAudit(projectPath);
 }
 
@@ -28,21 +29,20 @@ async function runPnpmAudit(projectPath: string): Promise<AuditRawOutput> {
   });
 
   if (result.timedOut) {
-    throw new Error('pnpm audit 执行超时（>120s），请检查网络或 registry 配置');
+    throw new Error(t('error.pnpmAuditTimeout'));
   }
 
   if (result.failed && !result.stdout) {
-    throw new Error(`pnpm audit 执行失败: ${result.stderr}`);
+    throw new Error(t('error.pnpmAuditFailed', { stderr: result.stderr }));
   }
 
   if (!result.stdout) {
-    throw new Error('pnpm audit 未返回有效输出');
+    throw new Error(t('error.pnpmAuditNoOutput'));
   }
 
-  // pnpm 无漏洞时可能输出纯文本而非 JSON
+  // pnpm may output plain text instead of JSON when no vulnerabilities found
   const firstBrace = result.stdout.indexOf('{');
   if (firstBrace === -1) {
-    // 没有 JSON，判断是否为"无漏洞"提示
     const output = result.stdout.trim().toLowerCase();
     if (output.includes('no known vulnerabilities') || output.includes('no vulnerabilities')) {
       return {
@@ -55,7 +55,7 @@ async function runPnpmAudit(projectPath: string): Promise<AuditRawOutput> {
         source: 'pnpm',
       };
     }
-    throw new Error('pnpm audit 输出格式异常，无法解析为 JSON');
+    throw new Error(t('error.pnpmAuditBadFormat'));
   }
 
   return {
@@ -72,25 +72,25 @@ async function runNpmAudit(projectPath: string): Promise<AuditRawOutput> {
   });
 
   if (result.timedOut) {
-    throw new Error('npm audit 执行超时（>60s），请检查网络或 registry 配置');
+    throw new Error(t('error.npmAuditTimeout'));
   }
 
   if (result.failed && !result.stdout) {
-    throw new Error(`npm audit 执行失败: ${result.stderr}`);
+    throw new Error(t('error.npmAuditFailed', { stderr: result.stderr }));
   }
 
   if (!result.stdout) {
-    throw new Error('npm audit 未返回有效输出，请确认 npm 版本 >= 7');
+    throw new Error(t('error.npmAuditNoOutput'));
   }
 
   const firstBrace = result.stdout.indexOf('{');
   if (firstBrace === -1) {
-    throw new Error('npm audit 输出格式异常，无法解析为 JSON。请确认 npm 版本 >= 7');
+    throw new Error(t('error.npmAuditBadFormat'));
   }
 
   const cleaned = result.stdout.slice(firstBrace).trim();
   if (!cleaned.startsWith('{')) {
-    throw new Error('npm audit 输出格式异常，无法解析为 JSON。请确认 npm 版本 >= 7');
+    throw new Error(t('error.npmAuditBadFormat'));
   }
 
   return {

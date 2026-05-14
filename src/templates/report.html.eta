@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="<%= it.labels['report._htmlLang'] %>">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>依赖审计报告 — <%= it.projectName %></title>
+<title><%= it.labels['report.title'] %> — <%= it.projectName %></title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #1a1a1a; background: #f8f9fa; padding: 2rem; }
@@ -37,27 +37,27 @@
 </head>
 <body>
 <div class="container">
-  <h1>依赖审计报告 — <%= it.projectName %></h1>
+  <h1><%= it.labels['report.title'] %> — <%= it.projectName %></h1>
   <div class="meta">
-    <p>审计时间：<%= it.auditTime %></p>
-    <p>数据来源：<%= it.auditSource === 'pnpm' ? 'pnpm audit' : 'npm audit' %> (npm v<%= it.npmVersion %>)</p><% if (it.lockfileGenerated) { %>
-    <div class="warning">⚠️ 此审计基于自动生成的锁文件，可能与项目实际依赖树有差异</div><% } %>
+    <p><%= it.labels['report.auditTime'] %>：<%= it.auditTime %></p>
+    <p><%= it.labels['report.dataSource'] %>：<%= it.auditSource === 'pnpm' ? 'pnpm audit' : 'npm audit' %> (npm v<%= it.npmVersion %>)</p><% if (it.lockfileGenerated) { %>
+    <div class="warning"><%= it.labels['report.lockfileWarning'] %></div><% } %>
   </div>
 
-  <h2>摘要</h2>
+  <h2><%= it.labels['report.summary'] %></h2>
   <table>
-    <thead><tr><th>严重程度</th><th>数量</th></tr></thead>
+    <thead><tr><th><%= it.labels['report.severity'] %></th><th><%= it.labels['report.count'] %></th></tr></thead>
     <tbody>
       <tr><td><span class="badge badge-critical">Critical</span></td><td><%= it.summary.critical %></td></tr>
       <tr><td><span class="badge badge-high">High</span></td><td><%= it.summary.high %></td></tr>
       <tr><td><span class="badge badge-moderate">Moderate</span></td><td><%= it.summary.moderate %></td></tr>
       <tr><td><span class="badge badge-low">Low</span></td><td><%= it.summary.low %></td></tr>
-      <tr><td><strong>合计</strong></td><td><strong><%= it.summary.total %></strong></td></tr>
+      <tr><td><strong><%= it.labels['report.total'] %></strong></td><td><strong><%= it.summary.total %></strong></td></tr>
     </tbody>
   </table>
 
 <% if (it.vulnerabilities.length === 0) { %>
-  <div class="no-vuln">✅ 未发现已知漏洞。</div>
+  <div class="no-vuln">✅ <%= it.labels['report.noVulns'] %></div>
 <% } else { %><%
   var groups = {};
   var severities = ['critical', 'high', 'moderate', 'low'];
@@ -69,33 +69,33 @@
   <h2><span class="badge badge-<%= sev %>"><%= sev.charAt(0).toUpperCase() + sev.slice(1) %></span></h2>
   <% groups[sev].forEach(function(v) { %>
   <div class="vuln-card">
-    <h3><%= v.packageName %> — <%= v.title %><% if (!v.isDirect && v.affectedBy) { %> <span class="affected">（漏洞源于 <strong><%= v.affectedBy %></strong>）</span><% } %></h3>
+    <h3><%= v.packageName %> — <%= v.title %><% if (!v.isDirect && v.affectedBy) { %> <span class="affected">（<%= it.labels['report.vulnFrom'] %> <strong><%= v.affectedBy %></strong>）</span><% } %></h3>
     <ul><% if (v.cwe.length > 0) { %>
       <li><strong>CWE：</strong><%= v.cwe.join(', ') %></li><% } %><% if (v.cvss) { %>
       <li><strong>CVSS：</strong><%= v.cvss.score %>（<%= v.cvss.vectorString %>）</li><% } %><% if (v.url) { %>
       <li><strong>Advisory：</strong><a href="<%= v.url %>" target="_blank"><%= v.url %></a></li><% } %>
-      <% if (v.isDirect) { %><li><strong>安装版本：</strong><%= v.installedVersion %></li><% } else { %>
-      <li><strong>漏洞包：</strong><%= v.affectedBy %> <%= v.installedVersion %></li><% } %><% if (v.fixAvailable) { %>
-      <li><strong>修复方案：</strong><span class="<%= v.fixAvailable.isSemVerMajor ? 'fix-major' : 'fix' %>"><%= v.fixAvailable.isSemVerMajor ? '⚠️ 涉及大版本升级 — ' : '' %><code><%= v.fixAvailable.fixCommand %></code><% if (v.fixAvailable.targetVersion) { %>（升级到 <%= v.fixAvailable.targetVersion %>）<% } %></span></li><% } else { %>
-      <li><strong>修复方案：</strong>暂无可用修复</li><% } %>
+      <% if (v.isDirect) { %><li><strong><%= it.labels['report.installedVersion'] %>：</strong><%= v.installedVersion %></li><% } else { %>
+      <li><strong><%= it.labels['report.vulnPackage'] %>：</strong><%= v.affectedBy %> <%= v.installedVersion %></li><% } %><% if (v.fixAvailable) { %>
+      <li><strong><%= it.labels['report.fix'] %>：</strong><span class="<%= v.fixAvailable.isSemVerMajor ? 'fix-major' : 'fix' %>"><%= v.fixAvailable.isSemVerMajor ? it.labels['report.majorUpgrade'] : '' %><code><%= v.fixAvailable.fixCommand %></code><% if (v.fixAvailable.targetVersion) { %>（<%= it.labels['report.upgradeTo'] %> <%= v.fixAvailable.targetVersion %>）<% } %></span></li><% } else { %>
+      <li><strong><%= it.labels['report.fix'] %>：</strong><%= it.labels['report.noFix'] %></li><% } %>
     </ul><% if (v.dependencyChains.length > 0) { %>
-    <div style="margin-top:0.5rem"><strong>依赖链：</strong></div>
+    <div style="margin-top:0.5rem"><strong><%= it.labels['report.depChain'] %>：</strong></div>
     <% v.dependencyChains.forEach(function(chain, i) { %><% if (chain.path.length === 1) { %>
-    <div class="chain"><%= i + 1 %>. <strong><%= chain.path[0] %></strong> — 直接依赖</div><% } else { %>
+    <div class="chain"><%= i + 1 %>. <strong><%= chain.path[0] %></strong> — <%= it.labels['report.directDep'] %></div><% } else { %>
     <div class="chain"><%= i + 1 %>. <strong><%= chain.path[0] %></strong> → <%= chain.path.slice(1).join(' → ') %></div><% } %><% }) %><% } %>
   </div>
   <% }) %>
   <% } %>
 <% } %>
 <% if (it.ignoredVulnerabilities && it.ignoredVulnerabilities.length > 0) { %>
-  <h2><span class="badge" style="background:#6c757d">Ignored（已忽略）</span></h2>
+  <h2><span class="badge" style="background:#6c757d"><%= it.labels['report.ignored'] %></span></h2>
   <% it.ignoredVulnerabilities.forEach(function(item) { %>
   <div class="vuln-card" style="opacity:0.7">
     <h3>🙈 <%= item.vuln.packageName %> — <%= item.vuln.title %></h3>
     <ul>
-      <li><strong>严重级别：</strong><%= item.vuln.severity %></li>
-      <li><strong>忽略原因：</strong><%= item.reason || '未注明' %></li>
-      <% if (item.expiresAt) { %><li><strong>忽略到期：</strong><%= item.expiresAt %></li><% } %>
+      <li><strong><%= it.labels['report.severityLevel'] %>：</strong><%= item.vuln.severity %></li>
+      <li><strong><%= it.labels['report.ignoreReason'] %>：</strong><%= item.reason || it.labels['report.notSpecified'] %></li>
+      <% if (item.expiresAt) { %><li><strong><%= it.labels['report.ignoreExpiry'] %>：</strong><%= item.expiresAt %></li><% } %>
     </ul>
   </div>
   <% }) %>

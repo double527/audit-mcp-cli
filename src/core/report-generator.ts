@@ -2,10 +2,11 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Eta } from 'eta';
+import { getLabels } from './i18n.js';
 import type { AuditResult } from '../types.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-// 编译后 __dirname = dist/core/，模板在 dist/templates/（由 build 脚本复制）
+// After compilation __dirname = dist/core/, templates in dist/templates/ (copied by build script)
 const templatesDir = join(__dirname, '..', 'templates');
 
 const eta = new Eta({ autoEscape: false, autoTrim: [false, false] });
@@ -21,7 +22,7 @@ async function readTemplate(name: string): Promise<string> {
 }
 
 /**
- * 从 AuditResult 生成 Markdown 或 HTML 报告文件
+ * Generate a Markdown or HTML report file from AuditResult
  */
 export async function generateReport(
   options: GenerateReportOptions,
@@ -30,7 +31,8 @@ export async function generateReport(
 
   const templateFile = format === 'html' ? 'report.html.eta' : 'report.md.eta';
   const templateStr = await readTemplate(templateFile);
-  const content = eta.renderString(templateStr, auditResult);
+  const labels = getLabels();
+  const content = eta.renderString(templateStr, { ...auditResult, labels });
 
   const defaultFilename = format === 'html' ? 'audit-report.html' : 'audit-report.md';
   const targetPath = resolve(outputPath ?? defaultFilename);

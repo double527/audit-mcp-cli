@@ -1,6 +1,7 @@
 import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { t } from './i18n.js';
 
 const GITHUB_API = 'https://api.github.com';
 
@@ -12,7 +13,7 @@ export interface RemoteFiles {
 }
 
 /**
- * 从 GitHub 远程仓库拉取 package.json 和 package-lock.json 到临时目录
+ * Fetch package.json and package-lock.json from a GitHub remote repo to a temp directory
  */
 export async function fetchRemoteFiles(
   owner: string,
@@ -28,10 +29,10 @@ export async function fetchRemoteFiles(
     headers.Authorization = `Bearer ${token}`;
   }
 
-  // 创建临时目录
+  // Create temp directory
   const tempDir = await mkdtemp(join(tmpdir(), 'audit-mcp-cli-'));
 
-  // 注册清理钩子
+  // Register cleanup hooks
   const cleanup = () => {
     rm(tempDir, { recursive: true, force: true }).catch(() => {});
   };
@@ -39,46 +40,46 @@ export async function fetchRemoteFiles(
   process.on('SIGTERM', cleanup);
 
   try {
-    // 拉取 package.json
+    // Fetch package.json
     const pkgJsonContent = await fetchGitHubFile(owner, repo, 'package.json', ref, headers);
     await writeFile(join(tempDir, 'package.json'), pkgJsonContent, 'utf-8');
 
-    // 拉取 package-lock.json（可选）
+    // Fetch package-lock.json (optional)
     let packageLockJson: string | null = null;
     try {
       packageLockJson = await fetchGitHubFile(owner, repo, 'package-lock.json', ref, headers);
       await writeFile(join(tempDir, 'package-lock.json'), packageLockJson, 'utf-8');
     } catch {
-      // 锁文件不存在，后续会自动生成
+      // Lockfile not found, will be auto-generated later
     }
 
-    // 拉取 pnpm-lock.yaml（可选）
+    // Fetch pnpm-lock.yaml (optional)
     let pnpmLockYaml: string | null = null;
     try {
       pnpmLockYaml = await fetchGitHubFile(owner, repo, 'pnpm-lock.yaml', ref, headers);
       await writeFile(join(tempDir, 'pnpm-lock.yaml'), pnpmLockYaml, 'utf-8');
     } catch {
-      // 锁文件不存在，后续会自动生成
+      // Lockfile not found, will be auto-generated later
     }
 
     return { tempDir, packageJson: pkgJsonContent, packageLockJson, pnpmLockYaml };
   } catch (e) {
-    // 拉取失败时清理临时目录
+    // Cleanup temp dir on fetch failure
     await rm(tempDir, { recursive: true, force: true }).catch(() => {});
     throw e;
   }
 }
 
 /**
- * 清理临时目录
+ * Cleanup temp directory
  */
 export async function cleanupTempDir(tempDir: string): Promise<void> {
   await rm(tempDir, { recursive: true, force: true });
 }
 
 /**
- * 解析远程仓库标识
- * 支持格式：
+ * Parse remote repo identifier.
+ * Supported formats:
  *   github:owner/repo
  *   https://github.com/owner/repo
  *   https://github.com/owner/repo.git
@@ -96,10 +97,10 @@ export function parseRemoteRepo(remote: string): { platform: string; owner: stri
     return { platform: 'github', owner: urlMatch[1], repo: urlMatch[2] };
   }
 
-  throw new Error(`无法解析远程仓库标识：${remote}。支持格式：github:owner/repo 或 https://github.com/owner/repo`);
+  throw new Error(t('error.remoteParseFailed', { remote }));
 }
 
-// ─── GitHub API 调用 ───
+// ─── GitHub API calls ───
 
 async function fetchGitHubFile(
   owner: string,
@@ -108,7 +109,7 @@ async function fetchGitHubFile(
   ref: string,
   headers: Record<string, string>,
 ): Promise<string> {
-  // 1. 先尝试 Contents API
+  // 1. Try Contents API first
   const contentsUrl = `${GITHUB_API}/repos/${owner}/${repo}/contents/${path}?ref=${encodeURIComponent(ref)}`;
   const contentsResp = await githubFetch(contentsUrl, headers);
 
@@ -117,7 +118,7 @@ async function fetchGitHubFile(
     return decodeBase64(data.content);
   }
 
-  // 2. 如果是 403 且因为文件太大，fallback 到 Blob API
+  // 2. If 403 and file too large, fallback to Blob API
   if (contentsResp.status === 403) {
     const body = await contentsResp.text();
     if (body.includes('1 MB') || body.includes('too large')) {
@@ -125,22 +126,22 @@ async function fetchGitHubFile(
     }
   }
 
-  // 3. 404 = 文件不存在
+  // 3. 404 = file not found
   if (contentsResp.status === 404) {
-    throw new Error(`文件不存在：${path}（仓库 ${owner}/${repo}，引用 ${ref}）。可能无权限或路径错误`);
+    throw new Error(t('error.githubFileNotFound', { path, owner, repo, ref }));
   }
 
-  // 4. 403 = 限流
+  // 4. 403 = rate limited
   if (contentsResp.status === 403) {
-    throw new Error('GitHub API 限流，请使用 --token 参数或稍后重试');
+    throw new Error(t('error.githubRateLimited'));
   }
 
-  // 5. 401 = 认证失败
+  // 5. 401 = auth failed
   if (contentsResp.status === 401) {
-    throw new Error('GitHub 认证失败，请检查 --token 参数');
+    throw new Error(t('error.githubAuthFailed'));
   }
 
-  throw new Error(`GitHub API 错误：${contentsResp.status} ${contentsResp.statusText}`);
+  throw new Error(t('error.githubApiError', { status: String(contentsResp.status), text: contentsResp.statusText }));
 }
 
 async function fetchViaBlobApi(
@@ -150,24 +151,24 @@ async function fetchViaBlobApi(
   ref: string,
   headers: Record<string, string>,
 ): Promise<string> {
-  // 1. 通过 Tree API 获取文件 SHA
+  // 1. Get file SHA via Tree API
   const treeUrl = `${GITHUB_API}/repos/${owner}/${repo}/git/trees/${encodeURIComponent(ref)}?recursive=1`;
   const treeResp = await githubFetch(treeUrl, headers);
   if (!treeResp.ok) {
-    throw new Error(`GitHub Tree API 错误：${treeResp.status}`);
+    throw new Error(t('error.githubTreeApiError', { status: String(treeResp.status) }));
   }
 
   const treeData = await treeResp.json();
   const fileEntry = treeData.tree?.find((entry: { path: string; sha: string }) => entry.path === path);
   if (!fileEntry) {
-    throw new Error(`Tree API 中未找到文件：${path}`);
+    throw new Error(t('error.githubFileNotInTree', { path }));
   }
 
-  // 2. 通过 Blob API 获取文件内容
+  // 2. Get file content via Blob API
   const blobUrl = `${GITHUB_API}/repos/${owner}/${repo}/git/blobs/${fileEntry.sha}`;
   const blobResp = await githubFetch(blobUrl, headers);
   if (!blobResp.ok) {
-    throw new Error(`GitHub Blob API 错误：${blobResp.status}`);
+    throw new Error(t('error.githubBlobApiError', { status: String(blobResp.status) }));
   }
 
   const blobData = await blobResp.json();
@@ -180,7 +181,7 @@ async function githubFetch(url: string, headers: Record<string, string>): Promis
 }
 
 function decodeBase64(encoded: string): string {
-  // GitHub API 返回的 Base64 可能含换行符
+  // GitHub API returns Base64 that may contain newlines
   const cleaned = encoded.replace(/\n/g, '');
   return Buffer.from(cleaned, 'base64').toString('utf-8');
 }

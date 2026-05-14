@@ -1,49 +1,49 @@
-# 依赖审计报告 — <%= it.projectName %>
+# <%= it.labels['report.title'] %> — <%= it.projectName %>
 
-> 审计时间：<%= it.auditTime %>
-> 数据来源：<%= it.auditSource === 'pnpm' ? 'pnpm audit' : 'npm audit' %> (npm v<%= it.npmVersion %>)
-<% if (it.lockfileGenerated) { %>⚠️ 此审计基于自动生成的锁文件，可能与项目实际依赖树有差异
+> <%= it.labels['report.auditTime'] %>：<%= it.auditTime %>
+> <%= it.labels['report.dataSource'] %>：<%= it.auditSource === 'pnpm' ? 'pnpm audit' : 'npm audit' %> (npm v<%= it.npmVersion %>)
+<% if (it.lockfileGenerated) { %><%= it.labels['report.lockfileWarning'] %>
 <% } %>
-## 摘要
+## <%= it.labels['report.summary'] %>
 
-| 严重程度 | 数量 |
+| <%= it.labels['report.severity'] %> | <%= it.labels['report.count'] %> |
 |----------|------|
 | Critical | <%= it.summary.critical %> |
 | High | <%= it.summary.high %> |
 | Moderate | <%= it.summary.moderate %> |
 | Low | <%= it.summary.low %> |
-| **合计** | **<%= it.summary.total %>** |
+| **<%= it.labels['report.total'] %>** | **<%= it.summary.total %>** |
 
-<% if (it.vulnerabilities.length === 0) { %>✅ 未发现已知漏洞。
+<% if (it.vulnerabilities.length === 0) { %>✅ <%= it.labels['report.noVulns'] %>
 <% } else { %><% var groups = {}; var severities = ['critical', 'high', 'moderate', 'low']; severities.forEach(function(sev) { var items = it.vulnerabilities.filter(function(v) { return v.severity === sev; }); if (items.length > 0) groups[sev] = items; }); %><% for (var sev in groups) { %>
 ## <%= sev.charAt(0).toUpperCase() + sev.slice(1) %>
 
 <% groups[sev].forEach(function(v) { %>
-### <%= v.packageName %> — <%= v.title %><% if (!v.isDirect && v.affectedBy) { %>（漏洞源于 **<%= v.affectedBy %>**）<% } %>
+### <%= v.packageName %> — <%= v.title %><% if (!v.isDirect && v.affectedBy) { %>（<%= it.labels['report.vulnFrom'] %> **<%= v.affectedBy %>**）<% } %>
 
 <% if (v.cwe.length > 0) { %>- **CWE**：<%= v.cwe.join(', ') %>
 <% } %><% if (v.cvss) { %>- **CVSS**：<%= v.cvss.score %>（<%= v.cvss.vectorString %>）
 <% } %><% if (v.url) { %>- **Advisory**：<%= v.url %>
-<% } %><% if (v.isDirect) { %>- **安装版本**：<%= v.installedVersion %>
-<% } else { %>- **漏洞包**：<%= v.affectedBy %> <%= v.installedVersion %>
-<% } %><% if (v.fixAvailable) { %>- **修复方案**：<%= v.fixAvailable.isSemVerMajor ? '⚠️ 涉及大版本升级 — ' : '' %>`<%= v.fixAvailable.fixCommand %>`<% if (v.fixAvailable.targetVersion) { %>（升级到 <%= v.fixAvailable.targetVersion %>）<% } %>
-<% } else { %>- **修复方案**：暂无可用修复
+<% } %><% if (v.isDirect) { %>- **<%= it.labels['report.installedVersion'] %>**：<%= v.installedVersion %>
+<% } else { %>- **<%= it.labels['report.vulnPackage'] %>**：<%= v.affectedBy %> <%= v.installedVersion %>
+<% } %><% if (v.fixAvailable) { %>- **<%= it.labels['report.fix'] %>**：<%= v.fixAvailable.isSemVerMajor ? it.labels['report.majorUpgrade'] : '' %>`<%= v.fixAvailable.fixCommand %>`<% if (v.fixAvailable.targetVersion) { %>（<%= it.labels['report.upgradeTo'] %> <%= v.fixAvailable.targetVersion %>）<% } %>
+<% } else { %>- **<%= it.labels['report.fix'] %>**：<%= it.labels['report.noFix'] %>
 <% } %><% if (v.dependencyChains.length > 0) { %>
-**依赖链**：
-<% v.dependencyChains.forEach(function(chain, i) { %><% if (chain.path.length === 1) { %><%= i + 1 %>. **<%= chain.path[0] %>** — 直接依赖
+**<%= it.labels['report.depChain'] %>**：
+<% v.dependencyChains.forEach(function(chain, i) { %><% if (chain.path.length === 1) { %><%= i + 1 %>. **<%= chain.path[0] %>** — <%= it.labels['report.directDep'] %>
 <% } else { %><%= i + 1 %>. **<%= chain.path[0] %>** → <%= chain.path.slice(1).join(' → ') %>
 <% } %><% }) %><% } %>
 ---
 
 <% }) %><% } %><% } %><% if (it.ignoredVulnerabilities && it.ignoredVulnerabilities.length > 0) { %>
-## Ignored（已忽略）
+## <%= it.labels['report.ignored'] %>
 
 <% it.ignoredVulnerabilities.forEach(function(item) { %>
 ### 🙈 <%= item.vuln.packageName %> — <%= item.vuln.title %>
 
-- **严重级别**：<%= item.vuln.severity %>
-- **忽略原因**：<%= item.reason || '未注明' %><% if (item.expiresAt) { %>
-- **忽略到期**：<%= item.expiresAt %><% } %>
+- **<%= it.labels['report.severityLevel'] %>**：<%= item.vuln.severity %>
+- **<%= it.labels['report.ignoreReason'] %>**：<%= item.reason || it.labels['report.notSpecified'] %><% if (item.expiresAt) { %>
+- **<%= it.labels['report.ignoreExpiry'] %>**：<%= item.expiresAt %><% } %>
 
 ---
 

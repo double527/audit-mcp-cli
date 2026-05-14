@@ -1,12 +1,13 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { execa } from 'execa';
+import { t } from './i18n.js';
 import type { PackageManager } from '../types.js';
 
 const LOCKFILE_PRIORITY: Array<{ file: string; manager: PackageManager }> = [
   { file: 'pnpm-lock.yaml', manager: 'pnpm' },
   { file: 'package-lock.json', manager: 'npm' },
-  { file: 'yarn.lock', manager: 'npm' }, // yarn 项目走 npm 兜底
+  { file: 'yarn.lock', manager: 'npm' }, // yarn falls back to npm
 ];
 
 export function detectPackageManager(projectPath: string): PackageManager {
@@ -36,8 +37,8 @@ export async function ensureLockfile(
 }
 
 /**
- * 为 pnpm 项目确保 pnpm-lock.yaml 存在
- * 类似 npm 的 --package-lock-only，pnpm 用 --lockfile-only
+ * Ensure pnpm-lock.yaml exists for pnpm projects.
+ * Similar to npm's --package-lock-only, pnpm uses --lockfile-only.
  */
 export async function ensurePnpmLockfile(
   projectPath: string,
@@ -47,11 +48,11 @@ export async function ensurePnpmLockfile(
     return { generated: false };
   }
 
-  // 先检查 pnpm 是否可用
+  // Check if pnpm is available
   try {
     await execa('pnpm', ['--version'], { reject: true });
   } catch {
-    throw new Error('未检测到 pnpm，请先安装：npm install -g pnpm');
+    throw new Error(t('error.pnpmNotFound'));
   }
 
   await execa(
@@ -69,15 +70,13 @@ export async function checkNpmEnvironment(): Promise<{ npmVersion: string }> {
     const result = await execa('npm', ['--version'], { reject: true });
     stdout = result.stdout;
   } catch {
-    throw new Error('未检测到 npm，请安装 Node.js >= 18');
+    throw new Error(t('error.npmNotFound'));
   }
 
   const trimmed = stdout.trim();
   const major = Number(trimmed.split('.')[0]);
   if (Number.isNaN(major) || major < 7) {
-    throw new Error(
-      `npm 版本过低（当前 ${trimmed}），需要 >= 7，请升级 Node.js`,
-    );
+    throw new Error(t('error.npmVersionLow', { version: trimmed }));
   }
 
   return { npmVersion: trimmed };
