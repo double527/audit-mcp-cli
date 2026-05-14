@@ -1,0 +1,33 @@
+{
+  "name": "audit-mcp-cli",
+  "version": "1.0.0",
+  "description": "Lightweight dependency vulnerability audit tool with CLI and MCP Server support",
+  "type": "module",
+  "bin": {
+    "audit-mcp-cli": "./bin/audit-mcp-cli.js"
+  },
+  "files": [
+    "dist",
+    "bin",
+    "src/templates"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "build": "tsc && node -e \"import{cpSync,mkdirSync}from'node:fs';import{join}from'node:path';const d=join('dist','templates');mkdirSync(d,{recursive:true});cpSync(join('src','templates'),d,{recursive:true})\"",
+    "dev": "tsx src/cli.ts",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "commander": "^14.0.3",
+    "execa": "^9.6.1",
+    "eta": "^4.6.0",
+    "zod": "^3.25.0",
+    "@modelcontextprotocol/sdk": "^1.29.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3",
+    "@types/node": "^22.x"
+  }
+}
