@@ -1,6 +1,6 @@
 {
   "name": "audit-mcp-cli",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "Lightweight dependency vulnerability audit tool with CLI and MCP Server support",
   "type": "module",
   "main": "./dist/index.js",
