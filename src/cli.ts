@@ -1,14 +1,18 @@
 import { Command } from 'commander';
+import { createRequire } from 'node:module';
 import { auditProject } from './index.js';
 import { startMcpServer } from './mcp-server.js';
 import { SEVERITY_RANK, type Severity } from './types.js';
+
+const require = createRequire(import.meta.url);
+const pkg = require('../package.json');
 
 const program = new Command();
 
 program
   .name('audit-mcp-cli')
   .description('轻量级依赖漏洞审计工具')
-  .version('1.0.0')
+  .version(pkg.version)
   .option('--path <path>', '本地项目路径')
   .option('--remote <repo>', '远程仓库标识（github:owner/repo 或 https://github.com/owner/repo）')
   .option('--ref <ref>', '远程引用（分支名 / Tag / SHA）', 'main')

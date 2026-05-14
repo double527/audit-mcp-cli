@@ -5,8 +5,8 @@ import type { PackageManager } from '../types.js';
 
 const LOCKFILE_PRIORITY: Array<{ file: string; manager: PackageManager }> = [
   { file: 'pnpm-lock.yaml', manager: 'pnpm' },
-  { file: 'yarn.lock', manager: 'yarn' },
   { file: 'package-lock.json', manager: 'npm' },
+  { file: 'yarn.lock', manager: 'npm' }, // yarn 项目走 npm 兜底
 ];
 
 export function detectPackageManager(projectPath: string): PackageManager {

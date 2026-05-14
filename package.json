@@ -8,7 +8,7 @@
     ".": "./dist/index.js"
   },
   "bin": {
-    "audit-mcp-cli": "./bin/audit-mcp-cli.js"
+    "audit-mcp-cli": "bin/audit-mcp-cli.js"
   },
   "files": [
     "dist",

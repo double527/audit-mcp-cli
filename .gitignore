@@ -3,3 +3,6 @@ dist/
 docs/
 *.tgz
 .DS_Store
+.npmrc
+audit-report.md
+audit-report.html
