@@ -55,7 +55,7 @@ export async function parsePnpmAudit(
   }
 
   const vulnerabilities = advisories
-    .map((adv) => parseAdvisory(adv))
+    .flatMap((adv) => parseAdvisory(adv))
     .sort((a, b) => SEVERITY_RANK[b.severity] - SEVERITY_RANK[a.severity]);
 
   return {
@@ -69,24 +69,55 @@ export async function parsePnpmAudit(
   };
 }
 
-function parseAdvisory(adv: PnpmAdvisory): Vulnerability {
+/**
+ * 解析单个 advisory，按直接依赖分组返回一条或多条漏洞记录
+ *
+ * 例如 lodash 被 element-plus 和 echarts 同时依赖，
+ * 会返回两条记录分别报告 element-plus 和 echarts
+ */
+function parseAdvisory(adv: PnpmAdvisory): Vulnerability[] {
   const chains = extractChains(adv);
 
   // 判断是否为直接依赖漏洞：链条只有 1 层（链头就是漏洞包本身）
   const isDirectVuln = chains.length === 0 || chains.every(c => c.path.length <= 1);
-  // 直接依赖包名：如果链条有多层，取第一条链的第一个包作为报告的 packageName
-  // 否则就是漏洞包本身
-  const directPkg = !isDirectVuln && chains[0]?.path[0]
-    ? chains[0].path[0]
-    : adv.module_name;
 
+  if (isDirectVuln) {
+    // 直接依赖漏洞：直接一条记录
+    return [buildVulnerability(adv, chains, true, adv.module_name, null)];
+  }
+
+  // 传递性漏洞：按链条的第一个包（直接依赖）分组
+  const groups = new Map<string, DependencyChain[]>();
+  for (const chain of chains) {
+    const directPkg = chain.path[0];
+    if (!directPkg) continue;
+    if (!groups.has(directPkg)) {
+      groups.set(directPkg, []);
+    }
+    groups.get(directPkg)!.push(chain);
+  }
+
+  const results: Vulnerability[] = [];
+  for (const [directPkg, groupChains] of groups) {
+    results.push(buildVulnerability(adv, groupChains, false, directPkg, adv.module_name));
+  }
+  return results;
+}
+
+function buildVulnerability(
+  adv: PnpmAdvisory,
+  chains: DependencyChain[],
+  isDirectVuln: boolean,
+  packageName: string,
+  affectedBy: string | null,
+): Vulnerability {
   // 修复建议：优先用 advisory 自带的 recommendation + patched_versions
   let fixAvailable: FixInfo | null = null;
   if (adv.patched_versions && adv.recommendation) {
     // patched_versions 格式: ">=1.15.1" 或 ""（无补丁）
     const target = adv.patched_versions.replace(/^>=?\s*/, '');
     // 如果是传递性漏洞，修复命令应该是升级直接依赖，而不是底层包
-    const fixPkg = isDirectVuln ? adv.module_name : directPkg;
+    const fixPkg = isDirectVuln ? adv.module_name : packageName;
     fixAvailable = {
       isFixable: true,
       fixCommand: `pnpm update ${fixPkg}`,
@@ -96,7 +127,7 @@ function parseAdvisory(adv: PnpmAdvisory): Vulnerability {
   }
 
   return {
-    packageName: directPkg,
+    packageName,
     severity: adv.severity as Severity,
     title: adv.title,
     url: adv.url,
@@ -105,7 +136,7 @@ function parseAdvisory(adv: PnpmAdvisory): Vulnerability {
     cvss: adv.cvss,
     installedVersion: adv.vulnerable_versions,
     isDirect: isDirectVuln,
-    affectedBy: isDirectVuln ? null : adv.module_name,
+    affectedBy,
     dependencyChains: chains,
     fixAvailable,
   };
@@ -127,7 +158,7 @@ function extractChains(adv: PnpmAdvisory): DependencyChain[] {
       // "apps\\web > element-plus > lodash-es" → ["apps/web", "element-plus", "lodash-es"]
       const parts = rawPath
         .split(/\s*>\s*/)
-        .map((s) => s.replace(/\\/, '/'))
+        .map((s) => s.replace(/\\/g, '/'))
         .map((s) => s.replace(/@[\d.]+$/, '')) // 去掉版本号: "hono@4.12.9" → "hono"
         .filter(Boolean);
 

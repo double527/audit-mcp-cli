@@ -39,8 +39,22 @@ async function runPnpmAudit(projectPath: string): Promise<AuditRawOutput> {
     throw new Error('pnpm audit 未返回有效输出');
   }
 
+  // pnpm 无漏洞时可能输出纯文本而非 JSON
   const firstBrace = result.stdout.indexOf('{');
   if (firstBrace === -1) {
+    // 没有 JSON，判断是否为"无漏洞"提示
+    const output = result.stdout.trim().toLowerCase();
+    if (output.includes('no known vulnerabilities') || output.includes('no vulnerabilities')) {
+      return {
+        rawJson: JSON.stringify({
+          actions: [],
+          advisories: {},
+          muted: [],
+          metadata: { vulnerabilities: { info: 0, low: 0, moderate: 0, high: 0, critical: 0 }, dependencies: 0, devDependencies: 0, optionalDependencies: 0, totalDependencies: 0 },
+        }),
+        source: 'pnpm',
+      };
+    }
     throw new Error('pnpm audit 输出格式异常，无法解析为 JSON');
   }
 

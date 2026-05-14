@@ -47,6 +47,13 @@ export async function ensurePnpmLockfile(
     return { generated: false };
   }
 
+  // 先检查 pnpm 是否可用
+  try {
+    await execa('pnpm', ['--version'], { reject: true });
+  } catch {
+    throw new Error('未检测到 pnpm，请先安装：npm install -g pnpm');
+  }
+
   await execa(
     'pnpm',
     ['install', '--lockfile-only', '--ignore-scripts'],
