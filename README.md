@@ -89,6 +89,21 @@ audit-mcp-cli --mcp
 
 ### Claude Desktop
 
+**Basic (local projects & public repos):**
+
+```json
+{
+  "mcpServers": {
+    "audit-mcp-cli": {
+      "command": "npx",
+      "args": ["-y", "audit-mcp-cli", "--mcp"]
+    }
+  }
+}
+```
+
+**With GitHub token (private repos / avoid rate limits):**
+
 ```json
 {
   "mcpServers": {
@@ -106,6 +121,21 @@ audit-mcp-cli --mcp
 ### Cursor
 
 Add to `.cursor/mcp.json`:
+
+**Basic (local projects & public repos):**
+
+```json
+{
+  "mcpServers": {
+    "audit-mcp-cli": {
+      "command": "npx",
+      "args": ["-y", "audit-mcp-cli", "--mcp"]
+    }
+  }
+}
+```
+
+**With GitHub token (private repos / avoid rate limits):**
 
 ```json
 {
@@ -130,11 +160,14 @@ The MCP server exposes one tool that supports both local and remote auditing:
 | `projectPath` | Local project path |
 | `remoteRepo` | Remote repo: `github:owner/repo` |
 | `ref` | Git ref (branch / tag / SHA) |
+| `token` | GitHub token (for private repos, or use `GITHUB_TOKEN` env) |
 | `format` | `md` or `html` |
 | `severity` | Minimum severity filter |
 | `outputPath` | Custom output file path |
 
-Returns: report file path + structured vulnerability summary (up to 20 entries shown).
+Returns: report file path + structured vulnerability details (CVSS, dependency chains, fix suggestions).
+
+> **Token is optional.** Local project auditing never requires a token. Remote public repos work without a token (60 requests/hour). Only private repos require a GitHub token.
 
 ## Ignore Mechanism
 
