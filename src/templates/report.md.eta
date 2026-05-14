@@ -19,18 +19,17 @@
 ## <%= sev.charAt(0).toUpperCase() + sev.slice(1) %>
 
 <% groups[sev].forEach(function(v) { %>
-### <%= v.packageName %><% if (v.isDirect) { %> — <%= v.title %><% } else { %> — ⚠️ 受影响（漏洞实际来源于 <%= v.affectedBy %>）<% } %>
+### <%= v.packageName %> — <%= v.title %><% if (!v.isDirect && v.affectedBy) { %>（漏洞源于 **<%= v.affectedBy %>**）<% } %>
 
-<% if (v.isDirect) { %><% if (v.cwe.length > 0) { %>- **CWE**：<%= v.cwe.join(', ') %>
+<% if (v.cwe.length > 0) { %>- **CWE**：<%= v.cwe.join(', ') %>
 <% } %><% if (v.cvss) { %>- **CVSS**：<%= v.cvss.score %>（<%= v.cvss.vectorString %>）
 <% } %><% if (v.url) { %>- **Advisory**：<%= v.url %>
-<% } %>- **安装版本**：<%= v.installedVersion %>
-<% if (v.fixAvailable) { %>- **修复方案**：<%= v.fixAvailable.isSemVerMajor ? '⚠️ 涉及大版本升级 — ' : '' %>`<%= v.fixAvailable.fixCommand %>`（升级到 <%= v.fixAvailable.targetVersion %>）
+<% } %><% if (v.isDirect) { %>- **安装版本**：<%= v.installedVersion %>
+<% } else { %>- **漏洞包**：<%= v.affectedBy %> <%= v.installedVersion %>
+<% } %><% if (v.fixAvailable) { %>- **修复方案**：<%= v.fixAvailable.isSemVerMajor ? '⚠️ 涉及大版本升级 — ' : '' %>`<%= v.fixAvailable.fixCommand %>`<% if (v.fixAvailable.targetVersion) { %>（升级到 <%= v.fixAvailable.targetVersion %>）<% } %>
 <% } else { %>- **修复方案**：暂无可用修复
-<% } %><% } else { %>- 无自身漏洞，因依赖 **<%= v.affectedBy %>** 而间接受影响
-- 修复方案同上：修复 <%= v.affectedBy %>
 <% } %><% if (v.dependencyChains.length > 0) { %>
-**源头依赖（package.json）**：
+**依赖链**：
 <% v.dependencyChains.forEach(function(chain, i) { %><% if (chain.path.length === 1) { %><%= i + 1 %>. **<%= chain.path[0] %>** — 直接依赖
 <% } else { %><%= i + 1 %>. **<%= chain.path[0] %>** → <%= chain.path.slice(1).join(' → ') %>
 <% } %><% }) %><% } %>

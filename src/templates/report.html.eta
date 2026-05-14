@@ -69,18 +69,17 @@
   <h2><span class="badge badge-<%= sev %>"><%= sev.charAt(0).toUpperCase() + sev.slice(1) %></span></h2>
   <% groups[sev].forEach(function(v) { %>
   <div class="vuln-card">
-    <h3><%= v.packageName %><% if (v.isDirect) { %> — <%= v.title %><% } else { %> <span class="affected">— ⚠️ 受影响（漏洞实际来源于 <%= v.affectedBy %>）</span><% } %></h3>
-    <ul><% if (v.isDirect) { %><% if (v.cwe.length > 0) { %>
+    <h3><%= v.packageName %> — <%= v.title %><% if (!v.isDirect && v.affectedBy) { %> <span class="affected">（漏洞源于 <strong><%= v.affectedBy %></strong>）</span><% } %></h3>
+    <ul><% if (v.cwe.length > 0) { %>
       <li><strong>CWE：</strong><%= v.cwe.join(', ') %></li><% } %><% if (v.cvss) { %>
       <li><strong>CVSS：</strong><%= v.cvss.score %>（<%= v.cvss.vectorString %>）</li><% } %><% if (v.url) { %>
       <li><strong>Advisory：</strong><a href="<%= v.url %>" target="_blank"><%= v.url %></a></li><% } %>
-      <li><strong>安装版本：</strong><%= v.installedVersion %></li><% if (v.fixAvailable) { %>
-      <li><strong>修复方案：</strong><span class="<%= v.fixAvailable.isSemVerMajor ? 'fix-major' : 'fix' %>"><%= v.fixAvailable.isSemVerMajor ? '⚠️ 涉及大版本升级 — ' : '' %><code><%= v.fixAvailable.fixCommand %></code>（升级到 <%= v.fixAvailable.targetVersion %>）</span></li><% } else { %>
-      <li><strong>修复方案：</strong>暂无可用修复</li><% } %><% } else { %>
-      <li>无自身漏洞，因依赖 <strong><%= v.affectedBy %></strong> 而间接受影响</li>
-      <li>修复方案同上：修复 <%= v.affectedBy %></li><% } %>
+      <% if (v.isDirect) { %><li><strong>安装版本：</strong><%= v.installedVersion %></li><% } else { %>
+      <li><strong>漏洞包：</strong><%= v.affectedBy %> <%= v.installedVersion %></li><% } %><% if (v.fixAvailable) { %>
+      <li><strong>修复方案：</strong><span class="<%= v.fixAvailable.isSemVerMajor ? 'fix-major' : 'fix' %>"><%= v.fixAvailable.isSemVerMajor ? '⚠️ 涉及大版本升级 — ' : '' %><code><%= v.fixAvailable.fixCommand %></code><% if (v.fixAvailable.targetVersion) { %>（升级到 <%= v.fixAvailable.targetVersion %>）<% } %></span></li><% } else { %>
+      <li><strong>修复方案：</strong>暂无可用修复</li><% } %>
     </ul><% if (v.dependencyChains.length > 0) { %>
-    <div style="margin-top:0.5rem"><strong>源头依赖（package.json）：</strong></div>
+    <div style="margin-top:0.5rem"><strong>依赖链：</strong></div>
     <% v.dependencyChains.forEach(function(chain, i) { %><% if (chain.path.length === 1) { %>
     <div class="chain"><%= i + 1 %>. <strong><%= chain.path[0] %></strong> — 直接依赖</div><% } else { %>
     <div class="chain"><%= i + 1 %>. <strong><%= chain.path[0] %></strong> → <%= chain.path.slice(1).join(' → ') %></div><% } %><% }) %><% } %>

@@ -72,21 +72,31 @@ export async function parsePnpmAudit(
 function parseAdvisory(adv: PnpmAdvisory): Vulnerability {
   const chains = extractChains(adv);
 
+  // 判断是否为直接依赖漏洞：链条只有 1 层（链头就是漏洞包本身）
+  const isDirectVuln = chains.length === 0 || chains.every(c => c.path.length <= 1);
+  // 直接依赖包名：如果链条有多层，取第一条链的第一个包作为报告的 packageName
+  // 否则就是漏洞包本身
+  const directPkg = !isDirectVuln && chains[0]?.path[0]
+    ? chains[0].path[0]
+    : adv.module_name;
+
   // 修复建议：优先用 advisory 自带的 recommendation + patched_versions
   let fixAvailable: FixInfo | null = null;
   if (adv.patched_versions && adv.recommendation) {
     // patched_versions 格式: ">=1.15.1" 或 ""（无补丁）
     const target = adv.patched_versions.replace(/^>=?\s*/, '');
+    // 如果是传递性漏洞，修复命令应该是升级直接依赖，而不是底层包
+    const fixPkg = isDirectVuln ? adv.module_name : directPkg;
     fixAvailable = {
       isFixable: true,
-      fixCommand: `pnpm update ${adv.module_name}`,
+      fixCommand: `pnpm update ${fixPkg}`,
       targetVersion: target || adv.recommendation.replace(/.*to version\s*/i, ''),
       isSemVerMajor: false, // pnpm 不提供此信息
     };
   }
 
   return {
-    packageName: adv.module_name,
+    packageName: directPkg,
     severity: adv.severity as Severity,
     title: adv.title,
     url: adv.url,
@@ -94,8 +104,8 @@ function parseAdvisory(adv: PnpmAdvisory): Vulnerability {
     cwe: adv.cwe,
     cvss: adv.cvss,
     installedVersion: adv.vulnerable_versions,
-    isDirect: true, // pnpm 的每个 advisory 都是直接漏洞
-    affectedBy: null,
+    isDirect: isDirectVuln,
+    affectedBy: isDirectVuln ? null : adv.module_name,
     dependencyChains: chains,
     fixAvailable,
   };
@@ -104,6 +114,9 @@ function parseAdvisory(adv: PnpmAdvisory): Vulnerability {
 /**
  * 从 findings[].paths 提取依赖链
  * pnpm 格式: "apps\\web > element-plus > lodash-es" 或 "apps\\server > prisma@7.6.0 > hono@4.12.9"
+ *
+ * 返回的链条：去掉根项目前缀（如 "apps/web"），保留 "直接依赖 → ... → 漏洞包" 的路径
+ * 例如: ["element-plus", "lodash-es"]，其中 element-plus 是源头直接依赖，lodash-es 是有漏洞的底层包
  */
 function extractChains(adv: PnpmAdvisory): DependencyChain[] {
   const seen = new Set<string>();
@@ -112,7 +125,6 @@ function extractChains(adv: PnpmAdvisory): DependencyChain[] {
   for (const finding of adv.findings) {
     for (const rawPath of finding.paths) {
       // "apps\\web > element-plus > lodash-es" → ["apps/web", "element-plus", "lodash-es"]
-      // 或者 "apps\\server > @prisma/client@7.6.0 > prisma@7.6.0 > hono@4.12.9"
       const parts = rawPath
         .split(/\s*>\s*/)
         .map((s) => s.replace(/\\/, '/'))
@@ -121,9 +133,9 @@ function extractChains(adv: PnpmAdvisory): DependencyChain[] {
 
       if (parts.length === 0) continue;
 
-      // 去掉根项目前缀（如 "apps/web"），保留源头依赖到漏洞包的路径
-      // pnpm monorepo 路径: ["apps/web", "element-plus", "lodash-es"]
-      // 非monorepo路径: ["axios@1.13.6"] 或 ["lodash-es"]
+      // 去掉根项目前缀（如 "apps/web" 或项目名），保留源头依赖到漏洞包的路径
+      // pnpm monorepo 路径: ["apps/web", "element-plus", "lodash-es"] → ["element-plus", "lodash-es"]
+      // 非monorepo路径: ["lodash-es"] → ["lodash-es"]（直接依赖）
       const sourceIdx = parts.length > 1 ? 1 : 0;
       const chain = parts.slice(sourceIdx);
 
