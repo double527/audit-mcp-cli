@@ -18,6 +18,9 @@ const AuditInputSchema = z.object({
 });
 
 export async function startMcpServer(): Promise<void> {
+  // MCP 模式静默 spinner，避免干扰 stdio 协议
+  process.env.AUDIT_SILENT = '1';
+
   const server = new Server(
     { name: 'audit-mcp-cli', version: '1.0.0' },
     { capabilities: { tools: {} } },

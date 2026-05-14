@@ -9,6 +9,48 @@ import { loadIgnoreFile, partitionVulnerabilities } from './core/ignore-loader.j
 import { SEVERITY_RANK } from './types.js';
 import type { AuditOptions, AuditResult, Severity, Vulnerability, VulnerabilitySummary } from './types.js';
 
+// ─── 简易 Spinner（无第三方依赖） ───
+
+const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+const SPINNER_INTERVAL = 80; // ms
+
+let spinnerTimer: ReturnType<typeof setInterval> | null = null;
+let spinnerStartTime = 0;
+let silent = false;
+
+function startSpinner(message: string): void {
+  if (silent) return;
+  stopSpinner();
+  spinnerStartTime = Date.now();
+  let frameIdx = 0;
+  process.stdout.write(`  ${SPINNER_FRAMES[0]} ${message}`);
+  spinnerTimer = setInterval(() => {
+    frameIdx = (frameIdx + 1) % SPINNER_FRAMES.length;
+    const elapsed = ((Date.now() - spinnerStartTime) / 1000).toFixed(0);
+    process.stdout.write(`\r  ${SPINNER_FRAMES[frameIdx]} ${message} (${elapsed}s)`);
+  }, SPINNER_INTERVAL);
+}
+
+function stopSpinner(): void {
+  if (spinnerTimer) {
+    clearInterval(spinnerTimer);
+    spinnerTimer = null;
+    process.stdout.write('\r' + ' '.repeat(60) + '\r');
+  }
+}
+
+function stepOk(message: string): void {
+  if (silent) return;
+  stopSpinner();
+  console.log(`  ✔ ${message}`);
+}
+
+function stepWarn(message: string): void {
+  if (silent) return;
+  stopSpinner();
+  console.log(`  ⚠ ${message}`);
+}
+
 /**
  * 核心审计函数：串联 环境检查 → 锁文件 → audit → 解析 → 报告
  *
@@ -24,8 +66,15 @@ export async function auditProject(options: AuditOptions = {}): Promise<AuditRes
     output,
   } = options;
 
+  // MCP 模式静默，不输出 spinner
+  silent = !!process.env.AUDIT_SILENT;
+
+  if (!silent) console.log('\n🔍 audit-mcp-cli 开始审计...\n');
+
   // 1. npm 环境检查（本地/远程都需要）
+  startSpinner('检查 npm 环境...');
   const { npmVersion } = await checkNpmEnvironment();
+  stepOk(`npm v${npmVersion}`);
 
   let resolvedPath: string;
   let tempDir: string | null = null;
@@ -38,10 +87,12 @@ export async function auditProject(options: AuditOptions = {}): Promise<AuditRes
       throw new Error(`暂不支持平台：${platform}，仅支持 GitHub`);
     }
 
+    startSpinner(`拉取远程仓库 ${owner}/${repo} (${ref})...`);
     const remote = await fetchRemoteFiles(owner, repo, ref, token);
     tempDir = remote.tempDir;
     resolvedPath = tempDir;
     lockfileGenerated = remote.packageLockJson === null && remote.pnpmLockYaml === null;
+    stepOk(`远程仓库文件已就绪`);
   } else {
     // ── 本地模式 ──
     resolvedPath = resolve(options.projectPath ?? process.cwd());
@@ -50,15 +101,18 @@ export async function auditProject(options: AuditOptions = {}): Promise<AuditRes
   try {
     // 2. 包管理器检测
     const pkgManager = detectPackageManager(resolvedPath);
+    stepOk(`包管理器: ${pkgManager}`);
 
     // 3. 确保锁文件存在
     if (pkgManager === 'pnpm') {
       // pnpm 项目：确保 pnpm-lock.yaml 存在
       try {
+        startSpinner('生成/检查 pnpm-lock.yaml...');
         const lockResult = await ensurePnpmLockfile(resolvedPath);
         if (remoteRepo) {
           lockfileGenerated = lockResult.generated;
         }
+        stepOk('锁文件就绪');
       } catch (e) {
         throw new Error(`无法生成 pnpm-lock.yaml：${(e as Error).message}`);
       }
@@ -66,7 +120,9 @@ export async function auditProject(options: AuditOptions = {}): Promise<AuditRes
       // npm / yarn 项目：确保 package-lock.json 存在
       let lockResult: { generated: boolean };
       try {
+        startSpinner('生成/检查 package-lock.json...');
         lockResult = await ensureLockfile(resolvedPath);
+        stepOk('锁文件就绪');
       } catch (e) {
         const hint = pkgManager === 'yarn'
           ? `当前项目使用 yarn，已尝试用 npm 生成 lockfile。请手动执行：npm install --package-lock-only --legacy-peer-deps`
@@ -79,12 +135,15 @@ export async function auditProject(options: AuditOptions = {}): Promise<AuditRes
     }
 
     // 4. 执行 audit（根据包管理器分发）
+    startSpinner(`执行 ${pkgManager} audit...`);
     const { rawJson, source } = await runAudit(resolvedPath, pkgManager);
+    stepOk(`审计完成 (${source})`);
 
     // 5. 读取项目名
     const projectName = await readProjectName(resolvedPath);
 
     // 6. 解析（根据 audit 来源路由到对应 parser）
+    startSpinner('解析审计结果...');
     let result: AuditResult;
     if (source === 'pnpm') {
       result = await parsePnpmAudit(rawJson, projectName);
@@ -94,6 +153,7 @@ export async function auditProject(options: AuditOptions = {}): Promise<AuditRes
     }
     result.lockfileGenerated = lockfileGenerated;
     result.npmVersion = npmVersion;
+    stepOk(`解析完成，发现 ${result.vulnerabilities.length} 个漏洞`);
 
     // 7. 加载忽略规则，分离漏洞
     const ignoreRules = await loadIgnoreFile(resolvedPath);
@@ -113,7 +173,8 @@ export async function auditProject(options: AuditOptions = {}): Promise<AuditRes
     // 9. summary 与实际漏洞列表对齐（metadata 原始计数可能与 parser 去重后不一致）
     result.summary = recalculateSummary(result.vulnerabilities);
 
-    // 9. 生成报告文件
+    // 10. 生成报告文件
+    startSpinner('生成报告...');
     const reportPath = await generateReport({
       auditResult: result,
       format,
@@ -121,9 +182,11 @@ export async function auditProject(options: AuditOptions = {}): Promise<AuditRes
     });
     result.reportFilePath = reportPath;
     result.reportFormat = format;
+    stepOk(`报告已保存: ${reportPath}`);
 
     return result;
   } finally {
+    stopSpinner();
     // 远程模式：清理临时目录
     if (tempDir) {
       await cleanupTempDir(tempDir);
