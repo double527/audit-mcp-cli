@@ -1,5 +1,7 @@
 # audit-mcp-cli
 
+[![npm version](https://img.shields.io/npm/v/audit-mcp-cli.svg)](https://www.npmjs.com/package/audit-mcp-cli) [![license](https://img.shields.io/npm/l/audit-mcp-cli.svg)](https://github.com/double527/audit-mcp-cli/blob/main/LICENSE) [![audit-mcp-cli MCP server](https://glama.ai/mcp/servers/double527/audit-mcp-cli/badges/score.svg)](https://glama.ai/mcp/servers/double527/audit-mcp-cli)
+
 [English](./README.md) | **中文**
 
 轻量级 Node.js 依赖漏洞审计工具。支持 CLI 和 MCP Server 两种模式，覆盖 npm 和 pnpm 项目，生成带有完整依赖链的 Markdown / HTML 结构化报告。

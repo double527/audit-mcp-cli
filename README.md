@@ -1,5 +1,7 @@
 # audit-mcp-cli
 
+[![npm version](https://img.shields.io/npm/v/audit-mcp-cli.svg)](https://www.npmjs.com/package/audit-mcp-cli) [![license](https://img.shields.io/npm/l/audit-mcp-cli.svg)](https://github.com/double527/audit-mcp-cli/blob/main/LICENSE) [![audit-mcp-cli MCP server](https://glama.ai/mcp/servers/double527/audit-mcp-cli/badges/score.svg)](https://glama.ai/mcp/servers/double527/audit-mcp-cli)
+
 **English** | [中文](./README_zh.md)
 
 A lightweight dependency vulnerability audit tool for Node.js projects. Supports CLI and MCP Server modes, covers npm and pnpm projects, and generates structured Markdown/HTML reports with full dependency chains.
