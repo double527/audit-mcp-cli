@@ -93,6 +93,25 @@ async function runNpmAudit(projectPath: string): Promise<AuditRawOutput> {
     throw new Error(t('error.npmAuditBadFormat'));
   }
 
+  // npm audit 在 registry 不支持 audit API 或网络错误时，
+  // 输出错误 JSON（无 auditReportVersion），需要在此拦截
+  try {
+    const peek = JSON.parse(cleaned);
+    if (peek.auditReportVersion === undefined) {
+      const msg = peek.message || '';
+      const code = peek.statusCode || '';
+      if (msg || code) {
+        throw new Error(t('error.npmAuditEndpointError', { message: msg, statusCode: code }));
+      }
+      throw new Error(t('error.npmAuditNotReport'));
+    }
+  } catch (e) {
+    if (e instanceof Error && e.message.startsWith('npm audit')) {
+      throw e;
+    }
+    // JSON.parse 本身失败，继续走 parser 层处理
+  }
+
   return {
     rawJson: cleaned,
     source: 'npm',

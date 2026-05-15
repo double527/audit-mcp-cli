@@ -37,6 +37,12 @@ export async function parseNpmAudit(
     throw new Error(`npm audit 输出解析失败: ${(e as Error).message}`);
   }
 
+  if (parsed.auditReportVersion === undefined) {
+    throw new Error(
+      'npm audit 未返回有效审计报告，可能是 registry 不支持 audit API 或网络异常',
+    );
+  }
+
   if (parsed.auditReportVersion !== 2) {
     throw new Error(
       `不支持的 npm audit 版本（auditReportVersion=${parsed.auditReportVersion}），需要 v7+ (auditReportVersion 2)`,
