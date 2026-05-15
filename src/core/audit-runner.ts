@@ -22,6 +22,19 @@ export async function runAudit(
 }
 
 async function runPnpmAudit(projectPath: string): Promise<AuditRawOutput> {
+  // 检测 pnpm 版本，< 11 时提示升级（旧端点将于 2026-07-15 关闭）
+  try {
+    const verResult = await execa('pnpm', ['--version'], { reject: false });
+    const major = parseInt(verResult.stdout.split('.')[0], 10);
+    if (major < 11) {
+      console.warn(
+        '⚠ 您的 pnpm 版本过低，pnpm audit 旧端点即将于 2026-07-15 关闭，届时 pnpm audit 将不可用。建议升级: pnpm add -g pnpm@latest',
+      );
+    }
+  } catch {
+    // 版本检测失败不影响主流程
+  }
+
   const result = await execa('pnpm', ['audit', '--json'], {
     cwd: projectPath,
     reject: false,

@@ -206,19 +206,23 @@ export interface PnpmFinding {
   paths: string[];
 }
 
-/** pnpm audit advisories 中单个条目 */
+/** pnpm audit advisories 中单个条目（兼容 pnpm 10.x / 11.x） */
 export interface PnpmAdvisory {
   findings: PnpmFinding[];
   title: string;
   severity: Severity;
   module_name: string;
   vulnerable_versions: string;
-  recommendation: string;
+  /** pnpm 10.x 有此字段，11.x 已移除 */
+  recommendation?: string;
   patched_versions: string;
-  cves: string[];
+  /** pnpm 10.x 有此字段，11.x 已移除 */
+  cves?: string[];
   github_advisory_id: string;
-  cvss: { score: number; vectorString: string } | null;
-  cwe: string[];
+  /** pnpm 10.x 有此字段，11.x 已移除 */
+  cvss?: { score: number; vectorString: string } | null;
+  /** pnpm 10.x 为 string[]，11.x 为逗号分隔字符串 */
+  cwe: string[] | string;
   url: string;
   id: number;
 }

@@ -28,6 +28,9 @@ export async function parsePnpmAudit(
   let parsed: PnpmAuditJson;
   try {
     parsed = JSON.parse(rawJson);
+    // pnpm 11.x 移除了 actions 和 muted 字段，补默认值以兼容
+    parsed.actions ??= [];
+    parsed.muted ??= [];
   } catch (e) {
     throw new Error(`pnpm audit 输出解析失败: ${(e as Error).message}`);
   }
@@ -111,20 +114,27 @@ function buildVulnerability(
   packageName: string,
   affectedBy: string | null,
 ): Vulnerability {
-  // 修复建议：优先用 advisory 自带的 recommendation + patched_versions
+  // 修复建议：基于 patched_versions（recommendation 在 pnpm 11 已移除）
   let fixAvailable: FixInfo | null = null;
-  if (adv.patched_versions && adv.recommendation) {
+  if (adv.patched_versions) {
     // patched_versions 格式: ">=1.15.1" 或 ""（无补丁）
     const target = adv.patched_versions.replace(/^>=?\s*/, '');
-    // 如果是传递性漏洞，修复命令应该是升级直接依赖，而不是底层包
-    const fixPkg = isDirectVuln ? adv.module_name : packageName;
-    fixAvailable = {
-      isFixable: true,
-      fixCommand: `pnpm update ${fixPkg}`,
-      targetVersion: target || adv.recommendation.replace(/.*to version\s*/i, ''),
-      isSemVerMajor: false, // pnpm 不提供此信息
-    };
+    if (target) {
+      // 如果是传递性漏洞，修复命令应该是升级直接依赖，而不是底层包
+      const fixPkg = isDirectVuln ? adv.module_name : packageName;
+      fixAvailable = {
+        isFixable: true,
+        fixCommand: `pnpm update ${fixPkg}`,
+        targetVersion: target,
+        isSemVerMajor: false, // pnpm 不提供此信息
+      };
+    }
   }
+
+  // cwe 兼容：pnpm 10.x 为 string[]，11.x 为逗号分隔字符串
+  const normalizedCwe: string[] = typeof adv.cwe === 'string'
+    ? adv.cwe.split(',').map((s) => s.trim()).filter(Boolean)
+    : adv.cwe;
 
   return {
     packageName,
@@ -132,8 +142,8 @@ function buildVulnerability(
     title: adv.title,
     url: adv.url,
     advisorySource: adv.id,
-    cwe: adv.cwe,
-    cvss: adv.cvss,
+    cwe: normalizedCwe,
+    cvss: adv.cvss ?? null,
     installedVersion: adv.vulnerable_versions,
     isDirect: isDirectVuln,
     affectedBy,
