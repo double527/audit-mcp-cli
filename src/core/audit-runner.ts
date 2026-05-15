@@ -26,6 +26,7 @@ async function runPnpmAudit(projectPath: string): Promise<AuditRawOutput> {
     cwd: projectPath,
     reject: false,
     timeout: 120_000,
+    env: { npm_config_registry: 'https://registry.npmjs.org/' },
   });
 
   if (result.timedOut) {
@@ -69,6 +70,7 @@ async function runNpmAudit(projectPath: string): Promise<AuditRawOutput> {
     cwd: projectPath,
     reject: false,
     timeout: 60_000,
+    env: { npm_config_registry: 'https://registry.npmjs.org/' },
   });
 
   if (result.timedOut) {
