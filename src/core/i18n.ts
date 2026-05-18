@@ -102,6 +102,7 @@ const en: MessageMap = {
   'report.moreAdvisories': '(+{count} other advisories)',
   'report.advisories': 'Advisories',
   'report.affectedDirectDeps': 'Affected direct dependencies',
+  'report.alternativeFix': 'Alternative fix',
   'report._htmlLang': 'en',
 
   // MCP
@@ -218,6 +219,7 @@ const zhCN: MessageMap = {
   'report.moreAdvisories': '（另有 {count} 个 advisory）',
   'report.advisories': 'Advisory 列表',
   'report.affectedDirectDeps': '受影响的直接依赖',
+  'report.alternativeFix': '备选方案',
   'report._htmlLang': 'zh-CN',
 
   // MCP
