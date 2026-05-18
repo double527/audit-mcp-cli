@@ -57,9 +57,11 @@ export async function parsePnpmAudit(
     };
   }
 
-  const vulnerabilities = advisories
-    .flatMap((adv) => parseAdvisory(adv))
-    .sort((a, b) => SEVERITY_RANK[b.severity] - SEVERITY_RANK[a.severity]);
+  // 每个 advisory 产出一条 Vulnerability（以漏洞包为中心）
+  const rawVulns = advisories.map((adv) => parseAdvisory(adv));
+
+  // 按 (affectedBy/packageName, advisorySources) 合并同漏洞包跨直接依赖的条目
+  const vulnerabilities = mergeVulnerabilities(rawVulns);
 
   return {
     projectName,
@@ -73,38 +75,24 @@ export async function parsePnpmAudit(
 }
 
 /**
- * 解析单个 advisory，按直接依赖分组返回一条或多条漏洞记录
+ * 解析单个 advisory，以漏洞包为中心产出一条记录
  *
- * 例如 lodash 被 element-plus 和 echarts 同时依赖，
- * 会返回两条记录分别报告 element-plus 和 echarts
+ * 不再按直接依赖拆分。所有依赖链、受影响的直接依赖都收拢到同一条记录中。
  */
-function parseAdvisory(adv: PnpmAdvisory): Vulnerability[] {
+function parseAdvisory(adv: PnpmAdvisory): Vulnerability {
   const chains = extractChains(adv);
 
   // 判断是否为直接依赖漏洞：链条只有 1 层（链头就是漏洞包本身）
   const isDirectVuln = chains.length === 0 || chains.every(c => c.path.length <= 1);
 
   if (isDirectVuln) {
-    // 直接依赖漏洞：直接一条记录
-    return [buildVulnerability(adv, chains, true, adv.module_name, null)];
+    // 直接依赖漏洞：packageName = 漏洞包本身
+    return buildVulnerability(adv, chains, true, adv.module_name, null, []);
   }
 
-  // 传递性漏洞：按链条的第一个包（直接依赖）分组
-  const groups = new Map<string, DependencyChain[]>();
-  for (const chain of chains) {
-    const directPkg = chain.path[0];
-    if (!directPkg) continue;
-    if (!groups.has(directPkg)) {
-      groups.set(directPkg, []);
-    }
-    groups.get(directPkg)!.push(chain);
-  }
-
-  const results: Vulnerability[] = [];
-  for (const [directPkg, groupChains] of groups) {
-    results.push(buildVulnerability(adv, groupChains, false, directPkg, adv.module_name));
-  }
-  return results;
+  // 传递性漏洞：收集所有受影响的直接依赖
+  const directDeps = [...new Set(chains.map(c => c.path[0]).filter(Boolean))];
+  return buildVulnerability(adv, chains, false, adv.module_name, adv.module_name, directDeps);
 }
 
 function buildVulnerability(
@@ -113,15 +101,15 @@ function buildVulnerability(
   isDirectVuln: boolean,
   packageName: string,
   affectedBy: string | null,
+  affectedDirectDeps: string[],
 ): Vulnerability {
   // 修复建议：基于 patched_versions（recommendation 在 pnpm 11 已移除）
   let fixAvailable: FixInfo | null = null;
   if (adv.patched_versions) {
-    // patched_versions 格式: ">=1.15.1" 或 ""（无补丁）
     const target = adv.patched_versions.replace(/^>=?\s*/, '');
     if (target) {
-      // 如果是传递性漏洞，修复命令应该是升级直接依赖，而不是底层包
-      const fixPkg = isDirectVuln ? adv.module_name : packageName;
+      // 直接漏洞：升级该包本身；传递漏洞：升级底层漏洞包
+      const fixPkg = isDirectVuln ? adv.module_name : adv.module_name;
       fixAvailable = {
         isFixable: true,
         fixCommand: `pnpm update ${fixPkg}`,
@@ -141,14 +129,18 @@ function buildVulnerability(
     severity: adv.severity as Severity,
     title: adv.title,
     url: adv.url,
+    advisoryUrls: [adv.url],
     advisorySource: adv.id,
+    advisorySources: [adv.id],
     cwe: normalizedCwe,
     cvss: adv.cvss ?? null,
     installedVersion: adv.vulnerable_versions,
     isDirect: isDirectVuln,
     affectedBy,
+    affectedDirectDeps,
     dependencyChains: chains,
     fixAvailable,
+    mergedCount: 1,
   };
 }
 
@@ -175,8 +167,6 @@ function extractChains(adv: PnpmAdvisory): DependencyChain[] {
       if (parts.length === 0) continue;
 
       // 去掉根项目前缀（如 "apps/web" 或项目名），保留源头依赖到漏洞包的路径
-      // pnpm monorepo 路径: ["apps/web", "element-plus", "lodash-es"] → ["element-plus", "lodash-es"]
-      // 非monorepo路径: ["lodash-es"] → ["lodash-es"]（直接依赖）
       const sourceIdx = parts.length > 1 ? 1 : 0;
       const chain = parts.slice(sourceIdx);
 
@@ -197,4 +187,122 @@ function extractChains(adv: PnpmAdvisory): DependencyChain[] {
   // 按长度排序（最短在前）
   chains.sort((a, b) => a.path.length - b.path.length);
   return chains;
+}
+
+/**
+ * 按 (漏洞包名) 分组合并
+ *
+ * 传递漏洞：key = affectedBy
+ * 直接漏洞：key = packageName
+ *
+ * 同一漏洞包的不同 advisory 全部合并到一起，实现：
+ * - postcss（10 个直接依赖）→ 1 条（包含所有 advisory 和所有依赖链）
+ * - hono（11 个 advisory + 2 个直接依赖）→ 1 条
+ * - axios（15 个 advisory）→ 1 条
+ *
+ * 合并规则：
+ * - severity → 取最高级别
+ * - advisorySource → 保留最高级别的那个（向后兼容）
+ * - advisorySources → 合并所有
+ * - advisoryUrls → 合并去重
+ * - title → 最高级别 advisory 的标题
+ * - cwe → 合并去重
+ * - cvss → 取 score 最高的
+ * - dependencyChains → 合并去重
+ * - affectedDirectDeps → 合并去重
+ * - fixAvailable → 取最高级别 advisory 的
+ * - mergedCount → 合并了几条
+ */
+function mergeVulnerabilities(vulns: Vulnerability[]): Vulnerability[] {
+  const groups = new Map<string, Vulnerability[]>();
+
+  for (const v of vulns) {
+    // 以漏洞包名作为合并 key（不包含 advisorySource）
+    const vulnPkg = v.isDirect ? v.packageName : (v.affectedBy ?? v.packageName);
+    const key = vulnPkg;
+
+    let group = groups.get(key);
+    if (!group) {
+      group = [];
+      groups.set(key, group);
+    }
+    group.push(v);
+  }
+
+  const merged: Vulnerability[] = [];
+  for (const group of groups.values()) {
+    if (group.length === 1) {
+      // 单条无需合并，但确保新字段有值
+      const v = group[0];
+      merged.push({
+        ...v,
+        advisorySources: v.advisorySources ?? [v.advisorySource],
+        advisoryUrls: v.advisoryUrls ?? [v.url],
+        affectedDirectDeps: v.affectedDirectDeps ?? [],
+        mergedCount: v.mergedCount ?? 1,
+      });
+      continue;
+    }
+
+    // 按 severity 降序排列，取最高级别的作为 primary
+    group.sort((a, b) => SEVERITY_RANK[b.severity] - SEVERITY_RANK[a.severity]);
+    const primary = group[0];
+
+    // 合并 advisorySources
+    const advisorySources = [...new Set(group.flatMap((v) => v.advisorySources))];
+
+    // 合并 advisoryUrls（去重）
+    const advisoryUrls = [...new Set(group.flatMap((v) => v.advisoryUrls).filter(Boolean))];
+
+    // 合并 cwe（去重）
+    const cwe = [...new Set(group.flatMap((v) => v.cwe))];
+
+    // 合并 cvss：取 score 最高的
+    const cvssCandidates = group.map((v) => v.cvss).filter((c): c is NonNullable<typeof c> => c !== null);
+    const cvss = cvssCandidates.length > 0
+      ? cvssCandidates.reduce((best, c) => c.score > best.score ? c : best)
+      : null;
+
+    // 合并 dependencyChains（按 path key 去重）
+    const chainMap = new Map<string, DependencyChain>();
+    for (const v of group) {
+      for (const chain of v.dependencyChains) {
+        const key = chain.path.join('→');
+        if (!chainMap.has(key)) {
+          chainMap.set(key, chain);
+        }
+      }
+    }
+    const dependencyChains = [...chainMap.values()]
+      .sort((a, b) => a.path.length - b.path.length);
+
+    // 合并 affectedDirectDeps（去重）
+    const affectedDirectDeps = [...new Set(group.flatMap((v) => v.affectedDirectDeps))];
+
+    // 选择最佳 fixAvailable：优先选有 targetVersion 的
+    const fixCandidate = group.find(v => v.fixAvailable?.targetVersion) ?? primary;
+
+    merged.push({
+      packageName: primary.packageName,
+      severity: primary.severity,
+      title: primary.title,
+      url: primary.url,
+      advisoryUrls,
+      advisorySource: primary.advisorySource,
+      advisorySources,
+      cwe,
+      cvss,
+      installedVersion: primary.installedVersion,
+      isDirect: primary.isDirect,
+      affectedBy: primary.affectedBy,
+      affectedDirectDeps,
+      dependencyChains,
+      fixAvailable: fixCandidate.fixAvailable,
+      mergedCount: group.reduce((sum, v) => sum + v.mergedCount, 1),
+    });
+  }
+
+  // 按 severity 降序排序
+  merged.sort((a, b) => SEVERITY_RANK[b.severity] - SEVERITY_RANK[a.severity]);
+  return merged;
 }

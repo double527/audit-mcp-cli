@@ -130,19 +130,20 @@ function formatAuditResult(result: AuditResult): string {
 
   vulns.forEach((v, i) => {
     const badge = v.severity.toUpperCase();
-    const suffix = !v.isDirect && v.affectedBy ? `（${t('report.vulnFrom')} ${v.affectedBy}）` : '';
-    lines.push(`### ${i + 1}. [${badge}] ${v.packageName} — ${v.title}${suffix}`);
+    const mergeHint = v.mergedCount > 1 ? ` (+${v.mergedCount - 1})` : '';
+    lines.push(`### ${i + 1}. [${badge}] ${v.packageName} — ${v.title}${mergeHint}`);
 
-    if (!v.isDirect && v.affectedBy) {
-      lines.push(`- ${t('report.vulnPackage')}：${v.affectedBy} ${v.installedVersion}`);
-    } else {
-      lines.push(`- ${t('report.installedVersion')}：${v.installedVersion}`);
+    lines.push(`- ${t('report.vulnPackage')}：${v.packageName} ${v.installedVersion}`);
+    if (v.affectedDirectDeps && v.affectedDirectDeps.length > 0) {
+      lines.push(`- ${t('report.affectedDirectDeps')}（${v.affectedDirectDeps.length}）：${v.affectedDirectDeps.join(', ')}`);
     }
 
     if (v.cvss) {
       lines.push(`- CVSS：${v.cvss.score}（${v.cvss.vectorString}）`);
     }
-    if (v.url) {
+    if (v.advisoryUrls.length > 1) {
+      lines.push(`- Advisory：${v.advisoryUrls.join(', ')}`);
+    } else if (v.url) {
       lines.push(`- Advisory：${v.url}`);
     }
     if (v.fixAvailable) {

@@ -28,7 +28,7 @@
   .vuln-card li strong { display: inline-block; min-width: 5rem; }
   .chain { background: #f1f3f5; padding: 0.5rem 0.75rem; border-radius: 4px; font-family: 'SFMono-Regular', Consolas, monospace; font-size: 0.8rem; margin: 0.25rem 0; }
   .chain .cycle { color: #dc3545; font-weight: 600; }
-  .affected { color: #856404; }
+  .dep-tag { display: inline-block; background: #e9ecef; padding: 0.1rem 0.4rem; border-radius: 3px; font-size: 0.8rem; margin: 0.1rem 0.15rem; font-family: 'SFMono-Regular', Consolas, monospace; }
   .fix { color: #28a745; }
   .fix-major { color: #dc3545; }
   .no-vuln { text-align: center; padding: 3rem; color: #28a745; font-size: 1.25rem; font-weight: 600; }
@@ -69,13 +69,14 @@
   <h2><span class="badge badge-<%= sev %>"><%= sev.charAt(0).toUpperCase() + sev.slice(1) %></span></h2>
   <% groups[sev].forEach(function(v) { %>
   <div class="vuln-card">
-    <h3><%= v.packageName %> — <%= v.title %><% if (!v.isDirect && v.affectedBy) { %> <span class="affected">（<%= it.labels['report.vulnFrom'] %> <strong><%= v.affectedBy %></strong>）</span><% } %></h3>
+    <h3><%= v.packageName %> — <%= v.title %><% if (v.mergedCount > 1) { %> <span style="color:#6c757d;font-size:0.85em"><%= it.labels['report.moreAdvisories'].replace('{count}', v.mergedCount - 1) %></span><% } %></h3>
     <ul><% if (v.cwe.length > 0) { %>
       <li><strong>CWE：</strong><%= v.cwe.join(', ') %></li><% } %><% if (v.cvss) { %>
-      <li><strong>CVSS：</strong><%= v.cvss.score %>（<%= v.cvss.vectorString %>）</li><% } %><% if (v.url) { %>
+      <li><strong>CVSS：</strong><%= v.cvss.score %>（<%= v.cvss.vectorString %>）</li><% } %><% if (v.advisoryUrls.length > 1) { %>
+      <li><strong><%= it.labels['report.advisories'] %>：</strong><% v.advisoryUrls.forEach(function(u, i) { %><% if (i > 0) { %>, <% } %><a href="<%= u %>" target="_blank"><%= u %></a><% }) %></li><% } else if (v.url) { %>
       <li><strong>Advisory：</strong><a href="<%= v.url %>" target="_blank"><%= v.url %></a></li><% } %>
-      <% if (v.isDirect) { %><li><strong><%= it.labels['report.installedVersion'] %>：</strong><%= v.installedVersion %></li><% } else { %>
-      <li><strong><%= it.labels['report.vulnPackage'] %>：</strong><%= v.affectedBy %> <%= v.installedVersion %></li><% } %><% if (v.fixAvailable) { %>
+      <li><strong><%= it.labels['report.vulnPackage'] %>：</strong><%= v.packageName %> <%= v.installedVersion %></li><% if (v.affectedDirectDeps && v.affectedDirectDeps.length > 0) { %>
+      <li><strong><%= it.labels['report.affectedDirectDeps'] %>（<%= v.affectedDirectDeps.length %>）：</strong><% v.affectedDirectDeps.forEach(function(d) { %><span class="dep-tag"><%= d %></span><% }) %></li><% } %><% if (v.fixAvailable) { %>
       <li><strong><%= it.labels['report.fix'] %>：</strong><span class="<%= v.fixAvailable.isSemVerMajor ? 'fix-major' : 'fix' %>"><%= v.fixAvailable.isSemVerMajor ? it.labels['report.majorUpgrade'] : '' %><code><%= v.fixAvailable.fixCommand %></code><% if (v.fixAvailable.targetVersion) { %>（<%= it.labels['report.upgradeTo'] %> <%= v.fixAvailable.targetVersion %>）<% } %></span></li><% } else { %>
       <li><strong><%= it.labels['report.fix'] %>：</strong><%= it.labels['report.noFix'] %></li><% } %>
     </ul><% if (v.dependencyChains.length > 0) { %>

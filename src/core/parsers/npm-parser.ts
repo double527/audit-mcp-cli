@@ -16,6 +16,7 @@ import type {
   FixInfo,
   Severity,
   VulnerabilitySummary,
+  CvssInfo,
   NpmAuditJson,
   NpmVulnerabilityEntry,
   NpmAdvisory,
@@ -89,6 +90,9 @@ export async function parseNpmAudit(
 
 /**
  * 解析单个漏洞条目
+ * 
+ * npm audit 按包名分组，via 数组可能包含多个 advisory 对象（同包多 CVE）。
+ * 合并策略：取最高 severity 的 advisory 作为 primary，合并 cwe/cvss/urls。
  */
 function parseVulnerabilityEntry(
   entry: NpmVulnerabilityEntry,
@@ -103,14 +107,8 @@ function parseVulnerabilityEntry(
   const isDirect = hasOwnAdvisory;
   const affectedBy = !isDirect && stringItems.length > 0 ? stringItems[0] : null;
 
-  // 从 advisory 对象提取漏洞详情
-  const advisory = advisoryItems[0];
-  const title = advisory?.title ?? entry.name;
-  const url = advisory?.url ?? '';
-  const advisorySource = advisory?.source ?? 0;
-  const cwe = advisory?.cwe ?? [];
-  const cvss = advisory?.cvss ?? null;
-  const installedVersion = entry.range;
+  // 从所有 advisory 对象提取并合并漏洞详情
+  const mergedAdvisory = mergeAdvisoryItems(advisoryItems);
 
   // 构建 dependency chains
   const chains = depTree
@@ -120,20 +118,86 @@ function parseVulnerabilityEntry(
   // 处理 fixAvailable 三种形态
   const fixAvailable = normalizeFixAvailable(entry.fixAvailable, entry.name);
 
+  // 受影响的直接依赖：从依赖链中提取（仅传递漏洞）
+  const affectedDirectDeps = !isDirect
+    ? [...new Set(chains.map(c => c.path[0]).filter(Boolean))]
+    : [];
+
   return {
     packageName: entry.name,
     severity: entry.severity,
-    title,
-    url,
-    advisorySource,
-    cwe,
-    cvss,
-    installedVersion,
+    title: mergedAdvisory.title,
+    url: mergedAdvisory.url,
+    advisoryUrls: mergedAdvisory.urls,
+    advisorySource: mergedAdvisory.source,
+    advisorySources: mergedAdvisory.sources,
+    cwe: mergedAdvisory.cwe,
+    cvss: mergedAdvisory.cvss,
+    installedVersion: entry.range,
     isDirect,
     affectedBy,
+    affectedDirectDeps,
     dependencyChains: chains,
     fixAvailable,
+    mergedCount: mergedAdvisory.count,
   };
+}
+
+interface MergedAdvisory {
+  title: string;
+  url: string;
+  urls: string[];
+  source: number;
+  sources: number[];
+  cwe: string[];
+  cvss: CvssInfo | null;
+  count: number;
+}
+
+/**
+ * 合并多个 advisory 对象：取最高 severity 的作为 primary，合并 cwe/cvss/urls
+ */
+function mergeAdvisoryItems(advisoryItems: NpmAdvisory[]): MergedAdvisory {
+  if (advisoryItems.length === 0) {
+    return { title: '', url: '', urls: [], source: 0, sources: [], cwe: [], cvss: null, count: 1 };
+  }
+
+  if (advisoryItems.length === 1) {
+    const a = advisoryItems[0];
+    return {
+      title: a.title,
+      url: a.url,
+      urls: [a.url],
+      source: a.source,
+      sources: [a.source],
+      cwe: a.cwe ?? [],
+      cvss: a.cvss ?? null,
+      count: 1,
+    };
+  }
+
+  // 按 severity 降序排列
+  const sorted = [...advisoryItems].sort(
+    (a, b) => SEVERITY_RANK[b.severity] - SEVERITY_RANK[a.severity],
+  );
+  const primary = sorted[0];
+
+  return {
+    title: primary.title,
+    url: primary.url,
+    urls: [...new Set(advisoryItems.map((a) => a.url).filter(Boolean))],
+    source: primary.source,
+    sources: advisoryItems.map((a) => a.source),
+    cwe: [...new Set(advisoryItems.flatMap((a) => a.cwe ?? []))],
+    cvss: pickHighestCvss(advisoryItems.map((a) => a.cvss ?? null)),
+    count: advisoryItems.length,
+  };
+}
+
+function pickHighestCvss(candidates: (CvssInfo | null)[]): CvssInfo | null {
+  const valid = candidates.filter((c): c is CvssInfo => c !== null);
+  if (valid.length === 0) return null;
+  return valid.reduce((best, c) => (c.score > best.score ? c : best));
 }
 
 /**

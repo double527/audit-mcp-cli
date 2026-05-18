@@ -19,14 +19,14 @@
 ## <%= sev.charAt(0).toUpperCase() + sev.slice(1) %>
 
 <% groups[sev].forEach(function(v) { %>
-### <%= v.packageName %> — <%= v.title %><% if (!v.isDirect && v.affectedBy) { %>（<%= it.labels['report.vulnFrom'] %> **<%= v.affectedBy %>**）<% } %>
+### <%= v.packageName %> — <%= v.title %><% if (v.mergedCount > 1) { %> <%= it.labels['report.moreAdvisories'].replace('{count}', v.mergedCount - 1) %><% } %>
 
 <% if (v.cwe.length > 0) { %>- **CWE**：<%= v.cwe.join(', ') %>
 <% } %><% if (v.cvss) { %>- **CVSS**：<%= v.cvss.score %>（<%= v.cvss.vectorString %>）
-<% } %><% if (v.url) { %>- **Advisory**：<%= v.url %>
-<% } %><% if (v.isDirect) { %>- **<%= it.labels['report.installedVersion'] %>**：<%= v.installedVersion %>
-<% } else { %>- **<%= it.labels['report.vulnPackage'] %>**：<%= v.affectedBy %> <%= v.installedVersion %>
-<% } %><% if (v.fixAvailable) { %>- **<%= it.labels['report.fix'] %>**：<%= v.fixAvailable.isSemVerMajor ? it.labels['report.majorUpgrade'] : '' %>`<%= v.fixAvailable.fixCommand %>`<% if (v.fixAvailable.targetVersion) { %>（<%= it.labels['report.upgradeTo'] %> <%= v.fixAvailable.targetVersion %>）<% } %>
+<% } %><% if (v.advisoryUrls.length > 1) { %>- **<%= it.labels['report.advisories'] %>**：<% v.advisoryUrls.forEach(function(u, i) { %><% if (i > 0) { %>, <% } %><%= u %><% }) %>
+<% } else if (v.url) { %>- **Advisory**：<%= v.url %>
+<% } %>- **<%= it.labels['report.vulnPackage'] %>**：<%= v.packageName %> <%= v.installedVersion %><% if (v.affectedDirectDeps && v.affectedDirectDeps.length > 0) { %>
+- **<%= it.labels['report.affectedDirectDeps'] %>（<%= v.affectedDirectDeps.length %>）**：<%= v.affectedDirectDeps.join(', ') %><% } %><% if (v.fixAvailable) { %>- **<%= it.labels['report.fix'] %>**：<%= v.fixAvailable.isSemVerMajor ? it.labels['report.majorUpgrade'] : '' %>`<%= v.fixAvailable.fixCommand %>`<% if (v.fixAvailable.targetVersion) { %>（<%= it.labels['report.upgradeTo'] %> <%= v.fixAvailable.targetVersion %>）<% } %>
 <% } else { %>- **<%= it.labels['report.fix'] %>**：<%= it.labels['report.noFix'] %>
 <% } %><% if (v.dependencyChains.length > 0) { %>
 **<%= it.labels['report.depChain'] %>**：

@@ -47,19 +47,23 @@ export interface CvssInfo {
 
 /** 漏洞数据（统一内部模型） */
 export interface Vulnerability {
-  /** 漏洞所在包名 */
+  /** 漏洞所在包名（直接漏洞=该包本身；传递漏洞=底层漏洞包，即 affectedBy） */
   packageName: string;
-  /** 严重级别 */
+  /** 严重级别（多个 advisory 合并后取最高） */
   severity: Severity;
-  /** 漏洞标题 */
+  /** 漏洞标题（取最高级别 advisory 的标题） */
   title: string;
-  /** advisory 详情链接（含 GHSA ID） */
+  /** advisory 详情链接（含 GHSA ID，最高级别 advisory 的链接） */
   url: string;
-  /** advisory 内部编号 */
+  /** 所有 advisory 详情链接 */
+  advisoryUrls: string[];
+  /** advisory 内部编号（最高级别 advisory 的 ID） */
   advisorySource: number;
-  /** CWE 编号，如 ["CWE-502"]，可能为空数组 */
+  /** 所有 advisory 内部编号 */
+  advisorySources: number[];
+  /** CWE 编号，如 ["CWE-502"]，可能为空数组（已合并去重） */
   cwe: string[];
-  /** CVSS 评分，可能为 null */
+  /** CVSS 评分，可能为 null（取最高分） */
   cvss: CvssInfo | null;
   /** 安装版本范围，如 "<=1.2.5" */
   installedVersion: string;
@@ -67,10 +71,14 @@ export interface Vulnerability {
   isDirect: boolean;
   /** 传递性漏洞：实际有漏洞的包名；直接漏洞为 null */
   affectedBy: string | null;
-  /** 完整依赖路径（环已拆解） */
+  /** 传递性漏洞受影响的直接依赖列表（去重）；直接漏洞为空数组 */
+  affectedDirectDeps: string[];
+  /** 完整依赖路径（环已拆解，已合并去重） */
   dependencyChains: DependencyChain[];
   /** 修复信息，不可修复时为 null */
   fixAvailable: FixInfo | null;
+  /** 合并的 advisory 数量（1 表示未合并） */
+  mergedCount: number;
 }
 
 /** 漏洞摘要统计 */

@@ -99,6 +99,9 @@ const en: MessageMap = {
   'report.ignoreReason': 'Ignore reason',
   'report.notSpecified': 'Not specified',
   'report.ignoreExpiry': 'Ignore expires',
+  'report.moreAdvisories': '(+{count} other advisories)',
+  'report.advisories': 'Advisories',
+  'report.affectedDirectDeps': 'Affected direct dependencies',
   'report._htmlLang': 'en',
 
   // MCP
@@ -212,6 +215,9 @@ const zhCN: MessageMap = {
   'report.ignoreReason': '忽略原因',
   'report.notSpecified': '未注明',
   'report.ignoreExpiry': '忽略到期',
+  'report.moreAdvisories': '（另有 {count} 个 advisory）',
+  'report.advisories': 'Advisory 列表',
+  'report.affectedDirectDeps': '受影响的直接依赖',
   'report._htmlLang': 'zh-CN',
 
   // MCP

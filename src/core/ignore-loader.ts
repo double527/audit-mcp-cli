@@ -30,7 +30,7 @@ export async function loadIgnoreFile(projectPath: string): Promise<IgnoreRule[]>
  * 判断漏洞是否被忽略规则匹配
  *
  * 匹配规则：
- * - 有 advisorySource → packageName + advisorySource 精确匹配
+ * - 有 advisorySource → packageName 匹配且 advisorySource 在漏洞的 advisorySources 数组中
  * - 无 advisorySource → 仅按 packageName 匹配（忽略该包所有 advisory）
  * - expiresAt 过期则不再匹配
  */
@@ -40,9 +40,9 @@ export function isIgnored(vuln: Vulnerability, rules: IgnoreRule[]): IgnoreRule 
     // 包名不匹配，跳过
     if (rule.packageName !== vuln.packageName) continue;
 
-    // 有 advisorySource → 精确匹配
+    // 有 advisorySource → 精确匹配（检查是否在 advisorySources 数组中）
     if (rule.advisorySource !== undefined) {
-      if (rule.advisorySource !== vuln.advisorySource) continue;
+      if (!vuln.advisorySources.includes(rule.advisorySource)) continue;
     }
 
     // 检查过期
