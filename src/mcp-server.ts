@@ -148,6 +148,10 @@ function formatAuditResult(result: AuditResult): string {
     }
     if (v.fixAvailable) {
       lines.push(`- ${t('report.fix')}：${v.fixAvailable.fixCommand}${v.fixAvailable.targetVersion ? `（${t('report.upgradeTo')} ${v.fixAvailable.targetVersion}）` : ''}`);
+      if (v.fixAvailable.alternativeFix) {
+        lines.push(`- ${t('report.alternativeFix')}：${v.fixAvailable.alternativeFix.description}`);
+        lines.push(`  { ${v.fixAvailable.alternativeFix.command} }`);
+      }
     } else {
       lines.push(`- ${t('report.fix')}：${t('report.noFix')}`);
     }

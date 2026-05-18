@@ -26,8 +26,13 @@
 <% } %><% if (v.advisoryUrls.length > 1) { %>- **<%= it.labels['report.advisories'] %>**：<% v.advisoryUrls.forEach(function(u, i) { %><% if (i > 0) { %>, <% } %><%= u %><% }) %>
 <% } else if (v.url) { %>- **Advisory**：<%= v.url %>
 <% } %>- **<%= it.labels['report.vulnPackage'] %>**：<%= v.packageName %> <%= v.installedVersion %><% if (v.affectedDirectDeps && v.affectedDirectDeps.length > 0) { %>
-- **<%= it.labels['report.affectedDirectDeps'] %>（<%= v.affectedDirectDeps.length %>）**：<%= v.affectedDirectDeps.join(', ') %><% } %><% if (v.fixAvailable) { %>- **<%= it.labels['report.fix'] %>**：<%= v.fixAvailable.isSemVerMajor ? it.labels['report.majorUpgrade'] : '' %>`<%= v.fixAvailable.fixCommand %>`<% if (v.fixAvailable.targetVersion) { %>（<%= it.labels['report.upgradeTo'] %> <%= v.fixAvailable.targetVersion %>）<% } %>
-<% } else { %>- **<%= it.labels['report.fix'] %>**：<%= it.labels['report.noFix'] %>
+- **<%= it.labels['report.affectedDirectDeps'] %>（<%= v.affectedDirectDeps.length %>）**：<%= v.affectedDirectDeps.join(', ') %>
+<% } %><% if (v.fixAvailable) { %>- **<%= it.labels['report.fix'] %>**：<%= v.fixAvailable.isSemVerMajor ? it.labels['report.majorUpgrade'] : '' %>`<%= v.fixAvailable.fixCommand %>`<% if (v.fixAvailable.targetVersion) { %>（<%= it.labels['report.upgradeTo'] %> <%= v.fixAvailable.targetVersion %>）<% } %>
+<% if (v.fixAvailable.alternativeFix) { %>- **<%= it.labels['report.alternativeFix'] %>**：<%= v.fixAvailable.alternativeFix.description %>
+  ```json
+  { <%= v.fixAvailable.alternativeFix.command %> }
+  ```
+<% } %><% } else { %>- **<%= it.labels['report.fix'] %>**：<%= it.labels['report.noFix'] %>
 <% } %><% if (v.dependencyChains.length > 0) { %>
 **<%= it.labels['report.depChain'] %>**：
 <% v.dependencyChains.forEach(function(chain, i) { %><% if (chain.path.length === 1) { %><%= i + 1 %>. **<%= chain.path[0] %>** — <%= it.labels['report.directDep'] %>
