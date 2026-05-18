@@ -1,3 +1,4 @@
+import semver from 'semver';
 import { SEVERITY_RANK } from '../../types.js';
 import type {
   AuditResult,
@@ -103,19 +104,47 @@ function buildVulnerability(
   affectedBy: string | null,
   affectedDirectDeps: string[],
 ): Vulnerability {
+  // 获取当前安装版本（从 findings 中取第一个）
+  const currentVersion = adv.findings[0]?.version || '';
+
   // 修复建议：基于 patched_versions（recommendation 在 pnpm 11 已移除）
   let fixAvailable: FixInfo | null = null;
   if (adv.patched_versions) {
-    const target = adv.patched_versions.replace(/^>=?\s*/, '');
+    // 使用 semver.minVersion() 获取满足条件的最小版本
+    const minVer = semver.minVersion(adv.patched_versions);
+    const target = minVer?.version || '';
+
     if (target) {
-      // 直接漏洞：升级该包本身；传递漏洞：升级底层漏洞包
-      const fixPkg = isDirectVuln ? adv.module_name : adv.module_name;
-      fixAvailable = {
-        isFixable: true,
-        fixCommand: `pnpm update ${fixPkg}`,
-        targetVersion: target,
-        isSemVerMajor: false, // pnpm 不提供此信息
-      };
+      // 判断是否 major 升级
+      const isSemVerMajor = currentVersion
+        ? semver.diff(currentVersion, target) === 'major'
+        : false;
+
+      if (isDirectVuln) {
+        // 直接漏洞：升级该包本身
+        fixAvailable = {
+          isFixable: true,
+          fixCommand: `pnpm update ${adv.module_name}`,
+          targetVersion: target,
+          isSemVerMajor,
+        };
+      } else {
+        // 传递性漏洞：推荐升级直接依赖，备选使用 pnpm.overrides
+        const directDepsCmd = affectedDirectDeps.length > 0
+          ? `pnpm update ${affectedDirectDeps.join(' ')}`
+          : `pnpm update ${adv.module_name}`;
+
+        fixAvailable = {
+          isFixable: true,
+          fixCommand: directDepsCmd,
+          targetVersion: '', // 传递性漏洞：直接依赖的版本无法确定，不显示
+          isSemVerMajor,
+          alternativeFix: {
+            description: `或使用 pnpm.overrides 强制指定 ${adv.module_name} 版本（需 >= ${target}）`,
+            command: `"pnpm": { "overrides": { "${adv.module_name}": ">=${target}" } }`,
+          },
+        };
+      }
     }
   }
 

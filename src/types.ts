@@ -35,6 +35,13 @@ export interface FixInfo {
   targetVersion: string;
   /** 是否涉及大版本升级 */
   isSemVerMajor: boolean;
+  /** 备选修复方案（如 pnpm.overrides），可选 */
+  alternativeFix?: {
+    /** 备选修复描述 */
+    description: string;
+    /** 备选修复命令或配置 */
+    command: string;
+  };
 }
 
 /** CVSS 评分 */
